@@ -216,3 +216,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Contest data and artifacts (confidential — never commit)
+data/
+datasets/
+raw/
+*.zstd
+*.zst
+outputs/*
+!outputs/.gitkeep
+checkpoints/*
+!checkpoints/.gitkeep
+submissions/*
+!submissions/.gitkeep
+logs/*
+!logs/.gitkeep
+*.npy
+*.npz
+*.pkl
+*.pickle

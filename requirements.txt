@@ -1,0 +1,9 @@
+numpy
+pandas
+scipy
+zstd
+zstandard
+scikit-learn
+lightgbm
+torch
+pyyaml

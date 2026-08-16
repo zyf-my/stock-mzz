@@ -1,0 +1,27 @@
+# 阶段 4：时间维模型。窗口只允许看到当前日之前的特征。
+include: configs/default.yaml
+
+window:
+  length: 10
+  # 当天截面特征是否并入，阶段 4 要单独消融
+  include_current_day: true
+  # 候选：5 / 10 / 20，一次只改一档
+  candidates: [5, 10, 20]
+
+model:
+  name: gru
+  # 实现时三选一往下试：hist_stats_lgbm → gru/tcn → small transformer
+  hidden_size: 64
+  num_layers: 1
+  dropout: 0.1
+
+train:
+  batch_size: 1024
+  max_epochs: 10
+  eval_split: valid
+
+paths:
+  checkpoint: checkpoints/temporal.pt
+  valid_pred: outputs/temporal_valid.npy
+  test_pred: outputs/temporal_test.npy
+  submission: submissions/task1_temporal.npy

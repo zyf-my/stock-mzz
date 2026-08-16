@@ -1,0 +1,94 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="NonAsciiCharacters" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="pandas" />
+          <option value="pillow" />
+          <option value="tqdm" />
+          <option value="dill" />
+          <option value="toml" />
+          <option value="dotenv" />
+          <option value="torchvision" />
+          <option value="transformers" />
+          <option value="tokenizers" />
+          <option value="tiktoken" />
+          <option value="timm" />
+          <option value="datasets" />
+          <option value="sentence_transformers" />
+          <option value="bitsandbytes" />
+          <option value="deepspeed" />
+          <option value="nvidia-cublas-cu12" />
+          <option value="nvidia-cuda-cupti-cu12" />
+          <option value="nvidia-cuda-nvrtc-cu12" />
+          <option value="nvidia-cuda-runtime-cu12" />
+          <option value="nvidia-cudnn-cu12" />
+          <option value="nvidia-cufft-cu12" />
+          <option value="nvidia-curand-cu12" />
+          <option value="nvidia-cusolver-cu12" />
+          <option value="nvidia-cusparse-cu12" />
+          <option value="nvidia-nccl-cu12" />
+          <option value="nvidia-nvjitlink-cu12" />
+          <option value="nvidia-nvtx-cu12" />
+          <option value="nltk" />
+          <option value="spacy" />
+          <option value="semantic_text_splitter" />
+          <option value="langdetect" />
+          <option value="editdistance" />
+          <option value="rank_bm25" />
+          <option value="langchain" />
+          <option value="langchain-cohere" />
+          <option value="langchain-community" />
+          <option value="langchain-core" />
+          <option value="langchain-experimental" />
+          <option value="langchain-groq" />
+          <option value="langchain-openai" />
+          <option value="langchain-text-splitters" />
+          <option value="langchain_google_genai" />
+          <option value="openai" />
+          <option value="anthropic" />
+          <option value="google-genai" />
+          <option value="litellm" />
+          <option value="instructor" />
+          <option value="pgvector" />
+          <option value="qdrant_client" />
+          <option value="lancedb" />
+          <option value="faiss-gpu" />
+          <option value="igraph" />
+          <option value="fastapi_users" />
+          <option value="fastapi-users-db-sqlalchemy" />
+          <option value="frontend" />
+          <option value="rouge_score" />
+          <option value="deepeval" />
+          <option value="ipdb" />
+          <option value="swe-rex" />
+          <option value="matplotlib" />
+          <option value="structlog" />
+          <option value="limits" />
+          <option value="graphistry" />
+          <option value="s3fs" />
+          <option value="dlt" />
+          <option value="mem0ai" />
+          <option value="accelerate" />
+          <option value="owlready2" />
+          <option value="minference" />
+          <option value="flash_attn" />
+          <option value="numpy" />
+          <option value="torch" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N802" />
+          <option value="N803" />
+          <option value="N806" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

@@ -1,0 +1,15 @@
+# 数据路径覆盖顺序：CLI --data > 环境变量 JINGGE_DATA > 本项
+# 数据包必须放在仓库外。当前开发机示例：
+#   D:/contest-data-private/data_unpacked.pkl
+data:
+  path: ""
+  # true：文件已是解包后的 dict pickle；false：官方 data.z
+  unpacked: true
+
+seed: 42
+
+splits:
+  # 以数据文件内的 *_start_idx 为准，这里只作注释
+  # train: [train_start_idx, valid_start_idx)
+  # valid: [valid_start_idx, test_start_idx)
+  # test:  [test_start_idx, T)
