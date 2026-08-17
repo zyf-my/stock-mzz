@@ -1,0 +1,19 @@
+# 相对 hist-lgbm-002 只改损失。超参与回归版对齐，相关性档位 15，不再加死正则。
+# 对照 hist-rank-001（5 档 + 浅树 + L2=2，valid −0.021）。不覆盖 hist_lgbm 产物。
+include: configs/hist_lgbm.yaml
+
+model:
+  name: lightgbm_rank
+  params:
+    objective: lambdarank
+
+train:
+  rank_label: within_day_rank
+  rank_grades: 15
+
+paths:
+  checkpoint: checkpoints/hist_rank_mild.txt
+  valid_pred: outputs/hist_rank_mild_valid.npy
+  test_pred: outputs/hist_rank_mild_test.npy
+  importance: outputs/hist_rank_mild_importance.csv
+  submission: submissions/task1_hist_rank_mild.npy

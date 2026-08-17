@@ -1,0 +1,29 @@
+# 同一套 cs 历史特征，只改损失为按日 LambdaRank。
+# 比 hist-lgbm-002 更强正则：更少树、更浅、L2，避免再出现 raw 历史那种过拟合。
+
+include: configs/hist_lgbm.yaml
+
+model:
+  name: lightgbm_rank
+  params:
+    n_estimators: 250
+    learning_rate: 0.05
+    num_leaves: 24
+    max_depth: 6
+    min_child_samples: 100
+    min_split_gain: 0.02
+    lambda_l2: 2.0
+    subsample: 0.8
+    colsample_bytree: 0.7
+    objective: lambdarank
+    verbosity: -1
+
+train:
+  rank_label: within_day_rank
+
+paths:
+  checkpoint: checkpoints/hist_rank.txt
+  valid_pred: outputs/hist_rank_valid.npy
+  test_pred: outputs/hist_rank_test.npy
+  importance: outputs/hist_rank_importance.csv
+  submission: submissions/task1_hist_rank.npy

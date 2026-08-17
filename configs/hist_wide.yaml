@@ -1,0 +1,18 @@
+# 冲 0.12 的主实验：不要再加历史花样，把每天的排序样本从 800 拉到 2000。
+# 特征变瘦（去掉 raw 和行业 z-score）才能在 16GB 上装下；历史仍用已验证的 10 日 cs 相对强弱。
+# 按 cat_6 分层抽样，避免全市场日子被随机抽成少数行业。
+
+include: configs/hist_lgbm.yaml
+
+features:
+  include_raw: false
+  industry_zscore: false
+  stratify_industry: true
+  max_train_stocks_per_day: 2000
+
+paths:
+  checkpoint: checkpoints/hist_wide.txt
+  valid_pred: outputs/hist_wide_valid.npy
+  test_pred: outputs/hist_wide_test.npy
+  importance: outputs/hist_wide_importance.csv
+  submission: submissions/task1_hist_wide.npy

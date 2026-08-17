@@ -1,0 +1,13 @@
+# 相对 gru-001 只加 cat_1 / cat_6 静态 embedding，损失仍是 MSE。
+# 不要覆盖 checkpoints/gru.pt 和 outputs/gru_*.npy。
+include: configs/gru.yaml
+
+features:
+  cat_indices: [1, 6]
+  cat_embed_dim: 8
+
+paths:
+  checkpoint: checkpoints/gru_cats.pt
+  valid_pred: outputs/gru_cats_valid.npy
+  test_pred: outputs/gru_cats_test.npy
+  submission: submissions/task1_gru_cats.npy

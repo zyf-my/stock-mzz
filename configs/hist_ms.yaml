@@ -1,0 +1,29 @@
+# 在 hist-lgbm-002 上做的下一版时序树，不覆盖 0.104 产物。
+# 依据：raw 历史过拟合；L=5 单独用会掉分；行业 z-score 增益很低；融合喜欢更强的时序支。
+# 改动：截面相对强弱上加 ewm（更看近端）和 delta（动量）；另加 5 日 last 做多尺度；关掉行业块省内存。
+
+include: configs/hist_lgbm.yaml
+
+features:
+  industry_zscore: false
+  max_train_stocks_per_day: 900
+  history:
+    length: 10
+    source: cs_zscore
+    stats: [mean, std, last, delta, ewm]
+    ewm_halflife: 3
+    short_length: 5
+    short_stats: [last]
+
+model:
+  params:
+    n_estimators: 500
+    colsample_bytree: 0.7
+    min_child_samples: 40
+
+paths:
+  checkpoint: checkpoints/hist_ms.txt
+  valid_pred: outputs/hist_ms_valid.npy
+  test_pred: outputs/hist_ms_test.npy
+  importance: outputs/hist_ms_importance.csv
+  submission: submissions/task1_hist_ms.npy

@@ -217,6 +217,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Machine-local paths (do not commit)
+configs/local.yaml
+
 # Contest data and artifacts (confidential — never commit)
 data/
 datasets/

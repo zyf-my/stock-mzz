@@ -1,13 +1,21 @@
-# 阶段 2：当天截面 LightGBM，不看历史窗口
-# 继承 configs/default.yaml 的数据路径与 seed
+# 阶段 2：当天截面 LightGBM（落实官方提示 2：在股票维 S 上建模）
+# 因果：每个样本只用当天 num_x / cat_x；截面与行业 z-score 只用当天 mask_x。
+# 继承 configs/default.yaml；本机数据路径见 configs/local.yaml
 
 include: configs/default.yaml
 
 features:
   use_num: true
+  # 原始数值 + 当天全市场 z-score + 当天行业(列 6)内 z-score
+  include_raw: true
+  cs_zscore: true
+  industry_zscore: true
+  industry_col: 6
   # 低/中基数类别。5 号列约 4094 档，疑似股票 ID，默认关闭
   cat_indices: [0, 1, 2, 3, 4, 6, 7, 8]
-  use_stock_id_cat: false  # 若为 true，再把 cat_indices 的 5 加进去
+  use_stock_id_cat: false
+  # 本机约 16GB：训练按日下采样。valid/test 仍全市场评估
+  max_train_stocks_per_day: 800
 
 model:
   name: lightgbm

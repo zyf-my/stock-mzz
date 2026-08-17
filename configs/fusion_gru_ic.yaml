@@ -1,0 +1,18 @@
+# gru_ic 训完后用。仅当 gru_ic valid > gru-001 的 0.0865 时再跑。不覆盖 task1_fusion.npy。
+include: configs/default.yaml
+
+inputs:
+  temporal_valid: outputs/gru_ic_valid.npy
+  temporal_test: outputs/gru_ic_test.npy
+  cross_section_valid: outputs/fusion_valid.npy
+  cross_section_test: outputs/fusion_test.npy
+  industry_col: 6
+
+fusion:
+  weight_grid: [0.0, 0.15, 0.25, 0.4, 0.5, 0.7, 1.0]
+
+paths:
+  valid_pred: outputs/fusion_gru_ic_valid.npy
+  test_pred: outputs/fusion_gru_ic_test.npy
+  submission: submissions/task1_fusion_gru_ic.npy
+  lock: outputs/fusion_gru_ic_lock.json

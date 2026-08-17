@@ -1,17 +1,18 @@
-# 阶段 5：时间维分数 + 股票维分数融合。权重只在 valid 上估，估完锁死再打 test。
+# 阶段 5：时间维（hist_lgbm）+ 股票维（baseline）融合。只在 valid 上选规则，锁死再打 test。
 include: configs/default.yaml
 
 inputs:
-  temporal_pred: outputs/temporal_valid.npy
-  cross_section_pred: outputs/baseline_valid.npy
+  temporal_valid: outputs/hist_lgbm_valid.npy
+  temporal_test: outputs/hist_lgbm_test.npy
+  cross_section_valid: outputs/baseline_valid.npy
+  cross_section_test: outputs/baseline_test.npy
+  industry_col: 6
 
 fusion:
-  method: linear_weight  # linear_weight | learned
-  # 粗网格，避免把 243 天验证集刷穿
-  weight_grid: [0.0, 0.25, 0.5, 0.75, 1.0]
-  locked_weight: null  # valid 上选定后填入，例如 0.5
+  weight_grid: [0.0, 0.25, 0.5, 0.7, 0.85, 1.0]
 
 paths:
   valid_pred: outputs/fusion_valid.npy
   test_pred: outputs/fusion_test.npy
   submission: submissions/task1_fusion.npy
+  lock: outputs/fusion_lock.json

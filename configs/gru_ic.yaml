@@ -1,0 +1,12 @@
+# 相对 gru-001 只改损失：当天 batch 上 1 - Pearson(pred, y1)。特征不变。
+# 不要覆盖 checkpoints/gru.pt 和 outputs/gru_*.npy。
+include: configs/gru.yaml
+
+model:
+  loss: pearson_ic
+
+paths:
+  checkpoint: checkpoints/gru_ic.pt
+  valid_pred: outputs/gru_ic_valid.npy
+  test_pred: outputs/gru_ic_test.npy
+  submission: submissions/task1_gru_ic.npy

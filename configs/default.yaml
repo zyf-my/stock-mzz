@@ -1,6 +1,5 @@
-# 数据路径覆盖顺序：CLI --data > 环境变量 JINGGE_DATA > 本项
-# 数据包必须放在仓库外。当前开发机示例：
-#   D:/contest-data-private/data_unpacked.pkl
+# 数据路径覆盖顺序：CLI --data > 环境变量 JINGGE_DATA > configs/local.yaml > 本项
+# 数据包必须放在仓库外。本机路径写在 configs/local.yaml（已 gitignore）。
 data:
   path: ""
   # true：文件已是解包后的 dict pickle；false：官方 data.z

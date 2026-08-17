@@ -1,0 +1,14 @@
+# 相对 hist-lgbm-002 只改窗口 10 → 5，其余相同。产物分开，不覆盖 0.104 那版。
+
+include: configs/hist_lgbm.yaml
+
+features:
+  history:
+    length: 5
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_l5.txt
+  valid_pred: outputs/hist_lgbm_l5_valid.npy
+  test_pred: outputs/hist_lgbm_l5_test.npy
+  importance: outputs/hist_lgbm_l5_importance.csv
+  submission: submissions/task1_hist_lgbm_l5.npy

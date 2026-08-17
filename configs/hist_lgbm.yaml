@@ -1,0 +1,20 @@
+# 阶段 4：截面 LightGBM + 过去 L 日的截面相对强弱（不是原始水平）
+# 窗口 [t-L, t)。source=cs_zscore：每天先在全市场做 z-score，再对这串相对位置做 mean/std/last。
+# hist-lgbm-001 用 raw 水平，valid RankIC 从 0.100 掉到 0.084，已废弃。
+
+include: configs/baseline.yaml
+
+features:
+  history:
+    enabled: true
+    length: 10
+    source: cs_zscore
+    num_indices: [5, 6, 7, 8, 10, 11, 17, 18, 19, 20, 21, 22, 24, 25, 39, 40, 41, 57, 68, 70, 90]
+    stats: [mean, std, last]
+
+paths:
+  checkpoint: checkpoints/hist_lgbm.txt
+  valid_pred: outputs/hist_lgbm_valid.npy
+  test_pred: outputs/hist_lgbm_test.npy
+  importance: outputs/hist_lgbm_importance.csv
+  submission: submissions/task1_hist_lgbm.npy

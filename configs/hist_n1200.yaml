@@ -1,0 +1,14 @@
+# 相对 hist-lgbm-002：关掉行业 z-score（gain 仅 4%）省内存，每天训练股票 800→1200。
+# 保留 raw。不要覆盖 hist_lgbm 产物。
+include: configs/hist_lgbm.yaml
+
+features:
+  industry_zscore: false
+  max_train_stocks_per_day: 1200
+
+paths:
+  checkpoint: checkpoints/hist_n1200.txt
+  valid_pred: outputs/hist_n1200_valid.npy
+  test_pred: outputs/hist_n1200_test.npy
+  importance: outputs/hist_n1200_importance.csv
+  submission: submissions/task1_hist_n1200.npy

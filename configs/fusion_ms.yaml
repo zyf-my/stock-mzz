@@ -1,0 +1,17 @@
+# 时序支换成 hist_ms 之后再跑融合。训练完 hist_ms 再执行 train_fusion.py。
+include: configs/default.yaml
+
+inputs:
+  temporal_valid: outputs/hist_ms_valid.npy
+  temporal_test: outputs/hist_ms_test.npy
+  cross_section_valid: outputs/baseline_valid.npy
+  cross_section_test: outputs/baseline_test.npy
+  industry_col: 6
+
+fusion:
+  weight_grid: [0.0, 0.25, 0.5, 0.7, 0.85, 1.0]
+
+paths:
+  valid_pred: outputs/fusion_ms_valid.npy
+  test_pred: outputs/fusion_ms_test.npy
+  submission: submissions/task1_fusion_ms.npy

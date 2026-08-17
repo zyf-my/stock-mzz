@@ -1,0 +1,32 @@
+# Qlib 风格 GRU：每只股票一条截面 z-score 序列，最后一步是当天（官方 X[t]→y1[t]，不看未来）。
+# 列与 hist_lgbm 的强因子一致。不改 hist_lgbm 配方，不覆盖 task1_fusion.npy。
+include: configs/default.yaml
+
+features:
+  num_indices: [5, 6, 7, 8, 10, 11, 17, 18, 19, 20, 21, 22, 24, 25, 39, 40, 41, 57, 68, 70, 90]
+  length: 10
+  include_current_day: true
+  clip: 5.0
+  max_train_stocks_per_day: 800
+
+model:
+  name: gru
+  hidden_size: 64
+  num_layers: 1
+  dropout: 0.1
+  loss: mse
+  lr: 0.001
+  weight_decay: 0.0001
+  max_epochs: 8
+  patience: 3
+
+train:
+  eval_split: valid
+  fill_invalid: 0.0
+  log_every_days: 400
+
+paths:
+  checkpoint: checkpoints/gru.pt
+  valid_pred: outputs/gru_valid.npy
+  test_pred: outputs/gru_test.npy
+  submission: submissions/task1_gru.npy

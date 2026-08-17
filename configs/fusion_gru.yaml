@@ -1,0 +1,20 @@
+# GRU 时序支 + 最强树 hist_lgbm。先训完 configs/gru.yaml。
+# 只在 valid 上选权重；产物不覆盖 submissions/task1_fusion.npy。
+# 主提交仍用融合 0.106，除非本实验 valid > 0.106185。
+include: configs/default.yaml
+
+inputs:
+  temporal_valid: outputs/gru_valid.npy
+  temporal_test: outputs/gru_test.npy
+  cross_section_valid: outputs/hist_lgbm_valid.npy
+  cross_section_test: outputs/hist_lgbm_test.npy
+  industry_col: 6
+
+fusion:
+  weight_grid: [0.0, 0.25, 0.5, 0.7, 0.85, 1.0]
+
+paths:
+  valid_pred: outputs/fusion_gru_valid.npy
+  test_pred: outputs/fusion_gru_test.npy
+  submission: submissions/task1_fusion_gru.npy
+  lock: outputs/fusion_gru_lock.json

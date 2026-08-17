@@ -11,7 +11,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load_config(path: str | Path) -> dict[str, Any]:
+def load_config(path: str | Path, apply_local: bool = True) -> dict[str, Any]:
     path = Path(path)
     if not path.is_absolute():
         path = ROOT / path
@@ -19,9 +19,16 @@ def load_config(path: str | Path) -> dict[str, Any]:
         cfg = yaml.safe_load(f) or {}
     include = cfg.pop("include", None)
     if include:
-        parent = load_config(include)
+        parent = load_config(include, apply_local=False)
         _deep_update(parent, cfg)
-        return parent
+        cfg = parent
+    if apply_local:
+        local_path = ROOT / "configs" / "local.yaml"
+        if local_path.is_file():
+            with local_path.open(encoding="utf-8") as f:
+                extra = yaml.safe_load(f) or {}
+            extra.pop("include", None)
+            _deep_update(cfg, extra)
     return cfg
 
 
