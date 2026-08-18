@@ -2,7 +2,11 @@
 
 靖戈企业命题一（课题 1，标签 `y1`）。用面板数据做横截面排序，指标是验证/测试集 mean RankIC，官方门槛 0.12。
 
-**先读 [`计划.md`](计划.md) 和 [`experiments.md`](experiments.md)。** 本仓库是半成品：当前最强本地 valid **0.110**（`configs/fusion_gru_blend.yaml`），测试集未作为选模依据。
+**先读 [`计划.md`](计划.md) 和 [`experiments.md`](experiments.md)。**
+
+当前最强本地 valid **0.117177**（末 800 天 GRU 每天 2000 只 + 覆盖度门控 + 原行业 MLP）。门槛 0.12 未到，测试集未作为选模依据。产物不在 git 里：`submissions/task1_fusion_recent_gru_n2000_cov_mlp.npy`。
+
+不要把 `configs/fusion_gru_blend.yaml`（0.110）或更早的融合当主方案。
 
 ## 队友接手
 
@@ -22,7 +26,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-4. 预测文件、checkpoint、提交 npy **不在 git 里**。要复现 0.110，按 `计划.md` 第 10 节顺序重跑，不要并行两份面板。
+4. 预测文件、checkpoint、提交 npy **不在 git 里**。要复现 0.117，按 `计划.md` 第 10 节和 `experiments.md` 末条 `gru-no-today-recent-n2000-001`，不要并行两份面板。
 5. 禁止提交：`data.z`、解包 pickle、`outputs/`、`checkpoints/`、`submissions/`、`*.npy`。
 
 已抛弃的实验不要重做一遍，结论写在 `experiments.md`。
