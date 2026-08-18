@@ -1,0 +1,14 @@
+# 新 GRU（不含当天）对树融合。不覆盖 fusion_gru_blend / fusion_cs_mlp。
+include: configs/fusion_gru_blend.yaml
+
+inputs:
+  temporal_valid: outputs/gru_no_today_valid.npy
+  temporal_test: outputs/gru_no_today_test.npy
+  cross_section_valid: outputs/fusion_valid.npy
+  cross_section_test: outputs/fusion_test.npy
+
+paths:
+  valid_pred: outputs/fusion_gru_no_today_valid.npy
+  test_pred: outputs/fusion_gru_no_today_test.npy
+  submission: submissions/task1_fusion_gru_no_today.npy
+  lock: outputs/fusion_gru_no_today_lock.json

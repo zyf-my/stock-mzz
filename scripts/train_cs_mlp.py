@@ -86,6 +86,10 @@ def main() -> None:
     print(f"loaded in {time.perf_counter() - t0:.1f}s  num_x={tuple(data['num_x'].shape)}")
 
     train_start, train_end = split_bounds(data, "train")
+    recent_days = train_cfg.get("recent_days") or feat.get("recent_days")
+    if recent_days:
+        train_start = max(int(train_start), int(train_end) - int(recent_days))
+        print(f"train recent_days={int(recent_days)} start={train_start}")
     valid = slice_split(data, "valid")
     test = slice_split(data, "test")
     print(f"days train={train_end - train_start} valid={valid['mask_x'].shape[0]} test={test['mask_x'].shape[0]}")
@@ -171,10 +175,14 @@ def main() -> None:
                 test["mask_x"],
                 industry=model.industry[test["start"] : test["end"]] if model.industry is not None else None,
             )
-            np.save(ROOT / "outputs/fusion_cs_mlp_valid.npy", out_valid)
-            np.save(ROOT / "outputs/fusion_cs_mlp_test.npy", out_test)
-            save_submission(out_test, ROOT / "submissions/task1_fusion_cs_mlp.npy")
-            print("wrote submissions/task1_fusion_cs_mlp.npy (still not overwriting fusion_gru_blend)")
+            default_run = str(paths.get("submission", "submissions/task1_cs_mlp.npy")).endswith("task1_cs_mlp.npy")
+            if default_run:
+                np.save(ROOT / "outputs/fusion_cs_mlp_valid.npy", out_valid)
+                np.save(ROOT / "outputs/fusion_cs_mlp_test.npy", out_test)
+                save_submission(out_test, ROOT / "submissions/task1_fusion_cs_mlp.npy")
+                print("wrote submissions/task1_fusion_cs_mlp.npy (still not overwriting fusion_gru_blend)")
+            else:
+                print(f"blend {locked['ic']:.6f}; not overwriting task1_fusion_cs_mlp.npy")
         else:
             print("blend did not beat 0.110069; not writing a new main submission")
 

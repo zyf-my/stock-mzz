@@ -1,0 +1,13 @@
+# 相对 gru_no_today_recent：只把每天训练股票 800→2000。仍是末 800 天、不含当天、MSE。
+# 挤的天 Pearson/MSE 在更大截面上算，更接近 valid 的全市场排序。不覆盖 recent GRU 产物。
+
+include: configs/gru_no_today_recent.yaml
+
+features:
+  max_train_stocks_per_day: 2000
+
+paths:
+  checkpoint: checkpoints/gru_no_today_recent_n2000.pt
+  valid_pred: outputs/gru_no_today_recent_n2000_valid.npy
+  test_pred: outputs/gru_no_today_recent_n2000_test.npy
+  submission: submissions/task1_gru_no_today_recent_n2000.npy

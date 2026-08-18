@@ -1,0 +1,15 @@
+# 相对 hist_lgbm_recent：只把每天训练股票 800→2000。窗口仍是 train 末 800 天。
+# 末段每天约 3500–4200 只有效股票；002 只抽 800 只，从未在接近 valid 的池子里排过序。
+# 不覆盖 hist_lgbm / hist_lgbm_recent 产物。
+
+include: configs/hist_lgbm_recent.yaml
+
+features:
+  max_train_stocks_per_day: 2000
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_recent_n2000.txt
+  valid_pred: outputs/hist_lgbm_recent_n2000_valid.npy
+  test_pred: outputs/hist_lgbm_recent_n2000_test.npy
+  importance: outputs/hist_lgbm_recent_n2000_importance.csv
+  submission: submissions/task1_hist_lgbm_recent_n2000.npy

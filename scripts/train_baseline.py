@@ -22,6 +22,7 @@ from src.dataset import (  # noqa: E402
     drop_task2_label,
     flatten_masked_rows,
     group_sizes,
+    keep_recent_days,
     load_panel,
     resolve_cat_indices,
     slice_split,
@@ -91,6 +92,10 @@ def main() -> None:
     train = slice_split(data, "train")
     valid = slice_split(data, "valid")
     test = slice_split(data, "test")
+    recent_days = (cfg.get("train") or {}).get("recent_days")
+    if recent_days:
+        train = keep_recent_days(train, int(recent_days))
+        print(f"train recent_days={int(recent_days)} start={train['start']}")
     print(f"days train={train['num_x'].shape[0]} valid={valid['num_x'].shape[0]} test={test['num_x'].shape[0]}")
 
     t1 = time.perf_counter()
@@ -125,9 +130,17 @@ def main() -> None:
     print(f"fit {time.perf_counter() - t2:.1f}s")
     del x_train, y_train
 
+    report_raw = (cfg.get("train") or {}).get("report_iterations")
+    report_iters: list[int | None] = [int(x) for x in report_raw] if report_raw else [None]
+
     t3 = time.perf_counter()
-    valid_pred = model.predict_panel(valid, fill_invalid=fill_invalid)
-    valid_ic = mean_rank_ic(valid_pred, valid["y1"], valid["mask_y"])
+    preds = model.predict_panel_iters(valid, report_iters, fill_invalid=fill_invalid)
+    for n in report_iters:
+        ic_n = float(mean_rank_ic(preds[n], valid["y1"], valid["mask_y"]))
+        tag = "all" if n is None else str(n)
+        print(f"valid mean RankIC@{tag}={ic_n:.6f}")
+    valid_pred = preds[report_iters[-1]]
+    valid_ic = float(mean_rank_ic(valid_pred, valid["y1"], valid["mask_y"]))
     print(f"valid mean RankIC={valid_ic:.6f}  predict {time.perf_counter() - t3:.1f}s")
 
     importance = model.feature_importance()

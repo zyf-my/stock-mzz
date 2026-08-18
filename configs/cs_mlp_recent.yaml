@@ -1,0 +1,13 @@
+# 相对 cs_mlp-001：只把拟合窗口改成 train 末 800 天。行业残差、Pearson IC、cat_1 都不变。
+# 不覆盖 cs_mlp / fusion 产物。
+
+include: configs/cs_mlp.yaml
+
+train:
+  recent_days: 800
+
+paths:
+  checkpoint: checkpoints/cs_mlp_recent.pt
+  valid_pred: outputs/cs_mlp_recent_valid.npy
+  test_pred: outputs/cs_mlp_recent_test.npy
+  submission: submissions/task1_cs_mlp_recent.npy

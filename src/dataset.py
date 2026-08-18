@@ -57,6 +57,21 @@ def slice_split(data: dict[str, Any], split: SplitName) -> dict[str, Any]:
     return out
 
 
+def keep_recent_days(split: dict[str, Any], n_days: int) -> dict[str, Any]:
+    """Keep the last n_days of a split for fitting. History still looks back via panel_*."""
+    keep = int(n_days)
+    n = int(split["num_x"].shape[0])
+    if keep <= 0 or keep >= n:
+        return split
+    skip = n - keep
+    out = dict(split)
+    for key in ("num_x", "cat_x", "y1", "mask_x", "mask_y", "y2", "industry"):
+        if key in out and out[key] is not None:
+            out[key] = out[key][skip:]
+    out["start"] = int(split["start"]) + skip
+    return out
+
+
 def split_cache_dir(root: Path | None = None) -> Path:
     base = Path(root) if root is not None else Path(__file__).resolve().parents[1]
     return base / "outputs" / "split_cache"

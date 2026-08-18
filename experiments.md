@@ -261,6 +261,108 @@
 - 结论：**小幅超过 0.111，作为新候选。** 产物 `submissions/task1_fusion_cs_mlp_cov.npy`。243 天上 +0.0007 仍可能有噪声，但门控方向与 Q4 诊断一致。未覆盖 `task1_fusion_cs_mlp.npy`。离 0.12 仍约 0.008。
 - 下一步：不要再加密覆盖度网格。下一条若做，用 GRU 关掉当天，或把树加到 600 棵。
 
+## hist-lgbm-n800-001
+- 日期：2026-08-19
+- 代码/配置：`configs/hist_lgbm_n800.yaml`，`scripts/train_baseline.py`
+- 输入特征：与 hist-lgbm-002 相同
+- 是否看历史：窗口 = 10，source=cs_zscore
+- 模型：LightGBM 回归，只把 n_estimators 400→800
+- 损失：MSE 回归 y1
+- valid mean RankIC：400→0.104192（与 002 逐位对齐），600→0.103043，**800→0.104201**
+- 耗时 / 硬件：合计 479s，CPU
+- 结论：**抛弃。** 400 棵已经是峰；再加 400 棵只涨 9e-6，600 棵还略掉。未覆盖 `hist_lgbm` 产物。不要再加树。
+- 下一步：时序树锁 400 棵。
+
+## gru-no-today-001
+- 日期：2026-08-19
+- 代码/配置：`configs/gru_no_today.yaml`，`scripts/train_gru.py`
+- 输入特征：与 gru-001 相同 21 列 CS z-score；只把 `include_current_day` 关掉
+- 是否看历史：窗口 = 10，`[t-L, t)`，不含当天
+- 模型：同 gru-001；early stop 于 epoch 6，最佳 epoch 3
+- 损失：MSE
+- valid mean RankIC：0.081754（对照 gru-001 为 0.086522）
+- 耗时 / 硬件：拟合 591s，合计 733s，CPU
+- 结论：**作为融合支保留，不作主模型。** 单模更弱，但与树融合日均 Spearman 0.425（含当天 GRU 为 0.460），与 cs_mlp 0.503（含当天为 0.608）。与含当天 GRU 相关 0.941，不是全新信号，只是少叠当天。hist 的 39 个负日仍救回 24 天。
+- 下一步：按旧覆盖度门控迁移，再叠 cs_mlp；不要重搜覆盖度网格
+
+## fusion-gru-no-today-001
+- 日期：2026-08-19
+- 代码/配置：`configs/fusion_gru_no_today.yaml`
+- 输入特征：不重训。GRU 支=`gru_no_today` 0.0818；树融合支=`fusion_valid` 0.1062
+- 模型：valid 上锁定 raw_blend，GRU 权重 0.25
+- valid mean RankIC：0.110347（对照含当天 GRU 融合 0.110069）
+- 结论：**噪声级。** +0.0003 不够单独立项。产物 `submissions/task1_fusion_gru_no_today.npy`，未覆盖 0.110。真正差在覆盖度 + MLP，见下条。
+
+## fusion-cs-mlp-cov-notoday-001
+- 日期：2026-08-19
+- 代码/配置：覆盖度规则从 `fusion_gru_cov_lock.json` 原样迁移（tau=4546，低覆盖 0.25 / 高覆盖 0.4，raw）；cs_mlp 用原网格搜权重
+- 输入特征：gru_no_today + 树融合 + cs_mlp
+- 模型：覆盖度门控后锁定 rank_blend，cs_mlp 权重 0.25
+- valid mean RankIC：**0.113122**（对照含当天配方 0.111971；权重 0.15 为 0.112946，同样超过旧候选）
+- 诊断：门控本身 0.111615（旧 GRU 门控 0.111078），未重搜 tau
+- 结论：**作为新候选。** 产物 `submissions/task1_fusion_cs_mlp_cov_notoday.npy`。未覆盖 `task1_fusion_cs_mlp_cov.npy`。243 天上 +0.001 仍可能有噪声，但 0.15/0.25 两档都超过 0.112，且相关下降与假设一致。离 0.12 仍约 0.007。
+- 下一步：不要再加树、不要重搜覆盖度。下一条若做，用最近一段 train 重拟合 hist_lgbm，或 GRU 只追加列 69/73/74/42/66/58。
+
+## hist-lgbm-recent-001
+- 日期：2026-08-19
+- 代码/配置：`configs/hist_lgbm_recent.yaml`
+- 输入特征：与 hist-lgbm-002 相同
+- 是否看历史：窗口 = 10；拟合只用 train 末 800 天（标签），历史仍可回看更早
+- 模型：LightGBM 回归，超参与 002 相同
+- 损失：MSE 回归 y1
+- valid mean RankIC：0.105431（对照 002 为 0.104192）
+- 耗时 / 硬件：合计 267s
+- 结论：**方向对、幅度不够。** 诊断：valid 每天 4242–4724 只，train 全程 max=4239，没有任何一天达到 valid 最小覆盖。末 800 天覆盖 3433–4239，最接近，故小幅上涨。未覆盖 002。离 0.12 仍远。
+- 下一步：同一 800 天把每天抽样 800→2000，让树在大池子里排
+
+## hist-lgbm-recent-n2000-001
+- 日期：2026-08-19
+- 代码/配置：`configs/hist_lgbm_recent_n2000.yaml`
+- 输入特征：与 recent-001 相同，只把每天训练股票 800→2000
+- 是否看历史：窗口 = 10；拟合 train 末 800 天
+- 模型：LightGBM 回归，超参与 002 相同
+- 损失：MSE 回归 y1
+- valid mean RankIC：0.104616（对照 recent-800 只为 0.105431，002 为 0.104192）
+- 耗时 / 硬件：合计 325s
+- 结论：**抛弃。** 大池子抽样没有把树送进 valid 的覆盖区间（valid 最小 4242，train 最大仍 4239）。主树仍用 002。
+- 下一步：树侧这条制度差已经试过；0.113 到 0.12 的缺口还在。
+
+## gru-no-today-recent-001
+- 日期：2026-08-19
+- 代码/配置：`configs/gru_no_today_recent.yaml`
+- 输入特征：与 gru_no_today 相同；只把拟合改成 train 末 800 天
+- 是否看历史：窗口 = 10，不含当天
+- 模型：同 gru_no_today；epoch 1 最佳 0.0884，之后过拟合掉到 0.043，早停
+- 损失：MSE
+- valid mean RankIC：0.088440（对照全程 no-today 0.081754，含当天 gru-001 0.086522）
+- 诊断：Q4 0.0968→0.1040；与树相关 0.425→0.454
+- 耗时 / 硬件：拟合 172s，合计 334s
+- 结论：**作为新 GRU 支保留。** 单模是目前最强 GRU。覆盖度门控迁移后 0.1152，叠原 cs_mlp 到 **0.116009**。产物 `submissions/task1_fusion_recent_gru_cov_mlp.npy`，未覆盖 0.113。离 0.12 仍约 0.004。
+- 下一步：同一套 recency 重训 cs_mlp
+
+## cs-mlp-recent-001
+- 日期：2026-08-19
+- 代码/配置：`configs/cs_mlp_recent.yaml`
+- 输入特征：与 cs_mlp 相同；只把拟合改成 train 末 800 天
+- 是否看历史：窗口 = 0
+- 模型：同 cs_mlp；epoch 1 最佳
+- 损失：行业残差 Pearson IC
+- valid mean RankIC：0.086070（对照全程 cs_mlp 0.091768）
+- 结论：**抛弃。** 截面 MLP 砍早期数据会掉分；融合仍用原来的 cs_mlp。主候选仍是 recent GRU 门控 + 旧 MLP 的 0.116009。
+- 下一步：GRU recent 每天抽样 800→2000，只改这一项
+
+## gru-no-today-recent-n2000-001
+- 日期：2026-08-19
+- 代码/配置：`configs/gru_no_today_recent_n2000.yaml`
+- 输入特征：与 recent-001 相同；每天训练股票 800→2000
+- 是否看历史：窗口 = 10，不含当天；拟合 train 末 800 天
+- 模型：同 GRU；epoch 1 最佳 0.0919，之后崩到 0.027 / −0.001，早停
+- 损失：MSE
+- valid mean RankIC：0.091862（对照 recent-800 只 0.088440）
+- 诊断：Q4 0.1040→0.1072；与树相关 0.454→0.470
+- 结论：**作为当前 GRU 支。** 覆盖度门控 + 原 cs_mlp → **0.117177**。产物 `submissions/task1_fusion_recent_gru_n2000_cov_mlp.npy`，未覆盖 0.116。离 0.12 约 0.0028。
+- 下一步：若继续，同一 800 天把每天抽样提到全市场（约 3500–4200），只改这一项
+
 模板：
 
 ```text

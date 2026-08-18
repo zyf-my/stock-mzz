@@ -1,0 +1,13 @@
+# 相对 gru_no_today：只把拟合窗口改成 train 末 800 天。架构、不含当天、MSE、每天 800 只都不变。
+# 那 800 天覆盖度 3433–4239，最接近 valid（4242+）。不覆盖 gru_no_today / fusion 产物。
+
+include: configs/gru_no_today.yaml
+
+train:
+  recent_days: 800
+
+paths:
+  checkpoint: checkpoints/gru_no_today_recent.pt
+  valid_pred: outputs/gru_no_today_recent_valid.npy
+  test_pred: outputs/gru_no_today_recent_test.npy
+  submission: submissions/task1_gru_no_today_recent.npy

@@ -73,6 +73,10 @@ def main() -> None:
     print(f"loaded in {time.perf_counter() - t0:.1f}s  num_x={tuple(data['num_x'].shape)}")
 
     train_start, train_end = split_bounds(data, "train")
+    recent_days = train_cfg.get("recent_days") or feat.get("recent_days")
+    if recent_days:
+        train_start = max(int(train_start), int(train_end) - int(recent_days))
+        print(f"train recent_days={int(recent_days)} start={train_start}")
     valid = slice_split(data, "valid")
     test = slice_split(data, "test")
     print(f"days train={train_end - train_start} valid={valid['mask_x'].shape[0]} test={test['mask_x'].shape[0]}")

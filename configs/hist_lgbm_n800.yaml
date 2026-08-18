@@ -1,0 +1,18 @@
+# 相对 hist-lgbm-002：只把 n_estimators 400→800。配方、窗口、样本数不变。
+# 不覆盖 hist_lgbm / fusion 产物。valid 额外报告 400/600 棵，确认 400 是否仍对齐 0.104192。
+
+include: configs/hist_lgbm.yaml
+
+model:
+  params:
+    n_estimators: 800
+
+train:
+  report_iterations: [400, 600, 800]
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_n800.txt
+  valid_pred: outputs/hist_lgbm_n800_valid.npy
+  test_pred: outputs/hist_lgbm_n800_test.npy
+  importance: outputs/hist_lgbm_n800_importance.csv
+  submission: submissions/task1_hist_lgbm_n800.npy

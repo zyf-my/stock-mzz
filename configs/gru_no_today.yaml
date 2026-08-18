@@ -1,0 +1,13 @@
+# 相对 gru-001：只把 include_current_day 关掉。窗口仍是 10，列不变，MSE 不变。
+# 树已经用当天 CS z-score；本支只看 [t-L, t)，逼成纯轨迹。不覆盖 gru / fusion 产物。
+
+include: configs/gru.yaml
+
+features:
+  include_current_day: false
+
+paths:
+  checkpoint: checkpoints/gru_no_today.pt
+  valid_pred: outputs/gru_no_today_valid.npy
+  test_pred: outputs/gru_no_today_test.npy
+  submission: submissions/task1_gru_no_today.npy

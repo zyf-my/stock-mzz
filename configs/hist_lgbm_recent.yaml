@@ -1,0 +1,15 @@
+# 相对 hist-lgbm-002：只把拟合窗口改成 train 末 800 天。配方、每天 800 只、400 棵都不变。
+# 原因：valid 每天 4242–4724 只，train 全程从未到过 4242；末 800 天覆盖度 3433–4239，最接近。
+# 历史窗口仍可回看更早的天。不覆盖 hist_lgbm 产物。
+
+include: configs/hist_lgbm.yaml
+
+train:
+  recent_days: 800
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_recent.txt
+  valid_pred: outputs/hist_lgbm_recent_valid.npy
+  test_pred: outputs/hist_lgbm_recent_test.npy
+  importance: outputs/hist_lgbm_recent_importance.csv
+  submission: submissions/task1_hist_lgbm_recent.npy
