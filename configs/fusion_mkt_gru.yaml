@@ -1,0 +1,19 @@
+# 市场状态树融合 再与 MSE GRU 加权。仅当 fusion_mkt valid > 0.106 或值得对照时再跑。
+# 不覆盖 task1_fusion_gru_blend.npy。
+include: configs/default.yaml
+
+inputs:
+  temporal_valid: outputs/gru_valid.npy
+  temporal_test: outputs/gru_test.npy
+  cross_section_valid: outputs/fusion_mkt_valid.npy
+  cross_section_test: outputs/fusion_mkt_test.npy
+  industry_col: 6
+
+fusion:
+  weight_grid: [0.0, 0.15, 0.25, 0.4, 0.5, 0.7, 1.0]
+
+paths:
+  valid_pred: outputs/fusion_mkt_gru_valid.npy
+  test_pred: outputs/fusion_mkt_gru_test.npy
+  submission: submissions/task1_fusion_mkt_gru.npy
+  lock: outputs/fusion_mkt_gru_lock.json

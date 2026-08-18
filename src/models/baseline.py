@@ -13,6 +13,7 @@ from src.dataset import (
     cat_feature_col_indices,
     feature_names,
     history_width,
+    market_state_width,
     resolve_cat_indices,
 )
 
@@ -59,12 +60,31 @@ class LightGBMBaseline:
             self.model.fit(x, y, **fit_kw)
         self.booster = self.model.booster_
 
-    def predict_panel(self, split_data: dict[str, Any], fill_invalid: float = 0.0) -> np.ndarray:
+    def predict_panel(
+        self,
+        split_data: dict[str, Any],
+        fill_invalid: float = 0.0,
+        num_iteration: int | None = None,
+    ) -> np.ndarray:
+        iters = [num_iteration]
+        return self.predict_panel_iters(split_data, iters, fill_invalid=fill_invalid)[num_iteration]
+
+    def predict_panel_iters(
+        self,
+        split_data: dict[str, Any],
+        iterations: list[int | None],
+        fill_invalid: float = 0.0,
+    ) -> dict[int | None, np.ndarray]:
         if self.booster is None and self.model is None:
             raise RuntimeError("model is not fitted")
         n_days, n_stocks, _ = split_data["num_x"].shape
-        out = np.full((n_days, n_stocks), float(fill_invalid), dtype=np.float32)
+        outs = {
+            n: np.full((n_days, n_stocks), float(fill_invalid), dtype=np.float32)
+            for n in iterations
+        }
         for t in range(n_days):
+            if n_days > 400 and t > 0 and t % 400 == 0:
+                print(f"  predict day {t}/{n_days}", flush=True)
             mask = np.asarray(split_data["mask_x"][t], dtype=bool)
             idx = np.flatnonzero(mask)
             if idx.size == 0:
@@ -80,9 +100,9 @@ class LightGBMBaseline:
                 panel_num_x=split_data.get("panel_num_x"),
                 panel_mask_x=split_data.get("panel_mask_x"),
             )
-            pred = self._predict_rows(x)
-            out[t, idx] = np.asarray(pred, dtype=np.float32)
-        return out
+            for n in iterations:
+                outs[n][t, idx] = self._predict_rows(x, num_iteration=n)
+        return outs
 
     def feature_importance(self) -> list[tuple[str, float]]:
         if self.model is None and self.booster is None:
@@ -133,15 +153,19 @@ class LightGBMBaseline:
         n_cat = len(self.cat_indices)
         n_blocks = numeric_block_count_safe(self.feature_cfg)
         hist_w = history_width(self.feature_cfg)
-        n_num, rem = divmod(n_feat - n_cat - hist_w, max(n_blocks, 1))
+        mkt_w = market_state_width(self.feature_cfg)
+        n_num, rem = divmod(n_feat - n_cat - hist_w - mkt_w, max(n_blocks, 1))
         if rem != 0 or n_num <= 0:
             raise ValueError(f"cannot infer numeric width from n_feat={n_feat} n_cat={n_cat} blocks={n_blocks}")
         return n_num
 
-    def _predict_rows(self, x: np.ndarray) -> np.ndarray:
+    def _predict_rows(self, x: np.ndarray, num_iteration: int | None = None) -> np.ndarray:
         if self.booster is not None:
-            return np.asarray(self.booster.predict(x), dtype=np.float32)
+            kw = {} if num_iteration is None else {"num_iteration": int(num_iteration)}
+            return np.asarray(self.booster.predict(x, **kw), dtype=np.float32)
         if self.model is not None:
+            if num_iteration is not None:
+                return np.asarray(self.model.predict(x, num_iteration=int(num_iteration)), dtype=np.float32)
             return np.asarray(self.model.predict(x), dtype=np.float32)
         raise RuntimeError("model is not fitted")
 

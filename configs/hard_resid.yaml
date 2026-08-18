@@ -1,0 +1,37 @@
+# 难日残差：hard days 只由 hist_lgbm 在 train 上的逐日 RankIC 定义（分位固定 25%，不看 valid）。
+# 标签是当天 y1 对树分数的 OLS 残差。特征与 cs_mlp 相同，模型更小、正则更强。
+# 推理与 0.111 的 fusion_cs_mlp 融合。不覆盖 task1_fusion_cs_mlp.npy。
+include: configs/cs_mlp.yaml
+
+features:
+  target_mode: tree_ols
+  residual_industry: false
+  hard_quantile: 0.25
+  hard_repeat: 2
+  max_train_stocks_per_day: 800
+
+model:
+  hidden_size: 32
+  dropout: 0.2
+  loss: pearson_ic
+  lr: 0.001
+  weight_decay: 0.001
+  max_epochs: 6
+  patience: 2
+
+tree:
+  config: configs/hist_lgbm.yaml
+  checkpoint: checkpoints/hist_lgbm.txt
+
+base_blend:
+  valid: outputs/fusion_cs_mlp_valid.npy
+  test: outputs/fusion_cs_mlp_test.npy
+  fallback_valid: outputs/fusion_gru_blend_valid.npy
+  fallback_test: outputs/fusion_gru_blend_test.npy
+  baseline_ic: 0.111264
+
+paths:
+  checkpoint: checkpoints/hard_resid.pt
+  valid_pred: outputs/hard_resid_valid.npy
+  test_pred: outputs/hard_resid_test.npy
+  submission: submissions/task1_hard_resid.npy

@@ -8,6 +8,7 @@ Causal contract:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Iterator, Literal
 
 import numpy as np
@@ -56,6 +57,91 @@ def slice_split(data: dict[str, Any], split: SplitName) -> dict[str, Any]:
     return out
 
 
+def split_cache_dir(root: Path | None = None) -> Path:
+    base = Path(root) if root is not None else Path(__file__).resolve().parents[1]
+    return base / "outputs" / "split_cache"
+
+
+def industry_panel(split: dict[str, Any], industry_col: int = 6) -> np.ndarray:
+    if split.get("industry") is not None:
+        return np.asarray(split["industry"])
+    return np.asarray(split["cat_x"][..., int(industry_col)])
+
+
+def dump_split_cache(
+    data: dict[str, Any],
+    dest: Path | None = None,
+    *,
+    industry_col: int = 6,
+    splits: tuple[str, ...] = ("train", "valid", "test"),
+) -> list[Path]:
+    """Save labels/masks/industry only. Fusion scripts can skip the 8.5GB panel."""
+    dest = split_cache_dir() if dest is None else Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    for name in splits:
+        sl = slice_split(data, name)
+        path = dest / f"{name}.npz"
+        np.savez(
+            path,
+            y1=np.array(sl["y1"], dtype=np.float32, copy=True),
+            mask_x=np.array(sl["mask_x"], dtype=bool, copy=True),
+            mask_y=np.array(sl["mask_y"], dtype=bool, copy=True),
+            industry=np.array(sl["cat_x"][..., int(industry_col)], dtype=np.int16, copy=True),
+            start=np.int32(sl["start"]),
+            end=np.int32(sl["end"]),
+            industry_col=np.int32(industry_col),
+        )
+        written.append(path)
+        print(f"  wrote {path} y1={sl['y1'].shape} {path.stat().st_size / 1e6:.1f}MB")
+    return written
+
+
+def load_split_cache(split: SplitName, dest: Path | None = None) -> dict[str, Any]:
+    dest = split_cache_dir() if dest is None else Path(dest)
+    path = dest / f"{split}.npz"
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    with np.load(path) as z:
+        return {
+            "start": int(z["start"]),
+            "end": int(z["end"]),
+            "y1": np.array(z["y1"]),
+            "mask_x": np.array(z["mask_x"]),
+            "mask_y": np.array(z["mask_y"]),
+            "industry": np.array(z["industry"]),
+            "industry_col": int(z["industry_col"]),
+        }
+
+
+def load_eval_splits(
+    *,
+    cache_dir: Path | None = None,
+    data_path: str | Path | None = None,
+    industry_col: int = 6,
+    splits: tuple[str, ...] = ("valid", "test"),
+    dump_if_missing: bool = True,
+) -> tuple[dict[str, dict[str, Any]], str]:
+    """Load valid/test labels from cache. Falls back to the full panel once and dumps."""
+    import gc
+
+    cache_dir = split_cache_dir() if cache_dir is None else Path(cache_dir)
+    if all((cache_dir / f"{name}.npz").is_file() for name in splits):
+        return {name: load_split_cache(name, cache_dir) for name in splits}, "cache"
+    if data_path is None:
+        missing = [name for name in splits if not (cache_dir / f"{name}.npz").is_file()]
+        raise FileNotFoundError(
+            f"split cache missing {missing} under {cache_dir}; run scripts/dump_split_cache.py"
+        )
+    data = load_panel(str(data_path))
+    drop_task2_label(data)
+    if dump_if_missing:
+        dump_split_cache(data, cache_dir, industry_col=industry_col)
+    del data
+    gc.collect()
+    return {name: load_split_cache(name, cache_dir) for name in splits}, "panel+dump"
+
+
 def iter_days(split_data: dict[str, Any]) -> Iterator[dict[str, Any]]:
     """Yield one trading day at a time to avoid holding extra copies."""
     n_days = split_data["num_x"].shape[0]
@@ -99,6 +185,47 @@ def history_width(feature_cfg: dict[str, Any]) -> int:
     return n_idx * n_stats
 
 
+def market_state_spec(feature_cfg: dict[str, Any]) -> dict[str, Any] | None:
+    mkt = feature_cfg.get("market_state") or {}
+    if not mkt.get("enabled"):
+        return None
+    return mkt
+
+
+def market_state_width(feature_cfg: dict[str, Any]) -> int:
+    """Same-day market aggregates. Constant within a day; no future, no mask_y / y1."""
+    mkt = market_state_spec(feature_cfg)
+    if mkt is None:
+        return 0
+    n = 2 if mkt.get("include_coverage", True) else 0
+    n += len(mkt.get("num_indices") or []) * len(mkt.get("stats") or ["mean", "std"])
+    return n
+
+
+def _day_market_vector(num_t: np.ndarray, mask_x_t: np.ndarray, mkt: dict[str, Any]) -> np.ndarray:
+    mask = np.asarray(mask_x_t, dtype=bool)
+    n_valid = int(mask.sum())
+    n_stocks = int(mask.size)
+    vec: list[float] = []
+    if mkt.get("include_coverage", True):
+        vec.append(n_valid / max(n_stocks, 1))
+        vec.append(float(np.log1p(n_valid)))
+    cols = np.asarray(mkt.get("num_indices") or [], dtype=np.int64)
+    stats = list(mkt.get("stats") or ["mean", "std"])
+    if cols.size:
+        if n_valid >= 2:
+            xm = np.asarray(num_t[mask][:, cols], dtype=np.float32)
+            by_name = {"mean": xm.mean(axis=0), "std": xm.std(axis=0)}
+            for stat in stats:
+                block = by_name.get(stat)
+                if block is None:
+                    raise ValueError(f"unknown market_state stat {stat!r}; use mean/std")
+                vec.extend(np.asarray(block, dtype=np.float64).ravel().tolist())
+        else:
+            vec.extend([0.0] * int(cols.size * len(stats)))
+    return np.asarray(vec, dtype=np.float32)
+
+
 def numeric_block_count(feature_cfg: dict[str, Any]) -> int:
     n = 0
     if feature_cfg.get("include_raw", True):
@@ -130,6 +257,13 @@ def feature_names(n_num: int, cat_indices: list[int], feature_cfg: dict[str, Any
             for stat in hist.get("short_stats") or ["last"]:
                 for col in hist.get("num_indices") or []:
                     names.append(f"hist{short}_{stat}_{int(col)}")
+    mkt = market_state_spec(feature_cfg)
+    if mkt is not None:
+        if mkt.get("include_coverage", True):
+            names.extend(["mkt_coverage", "mkt_log_n"])
+        for stat in mkt.get("stats") or ["mean", "std"]:
+            for col in mkt.get("num_indices") or []:
+                names.append(f"mkt_{stat}_{int(col)}")
     return names
 
 
@@ -210,6 +344,66 @@ def _industry_zscore(num_t: np.ndarray, mask: np.ndarray, groups: np.ndarray) ->
     return out
 
 
+def precompute_ind_cols(
+    num_x: np.ndarray,
+    mask_x: np.ndarray,
+    cat_x: np.ndarray,
+    cols: list[int],
+    industry_col: int = 6,
+) -> np.ndarray:
+    """(T, S, F) within-industry z-score of selected columns. Causal per day."""
+    cols_i = np.asarray(cols, dtype=np.int64)
+    t_len, n_stocks, _ = num_x.shape
+    out = np.zeros((t_len, n_stocks, cols_i.size), dtype=np.float32)
+    for t in range(t_len):
+        out[t] = _industry_zscore(
+            np.asarray(num_x[t][:, cols_i], dtype=np.float32),
+            mask_x[t],
+            cat_x[t][:, int(industry_col)],
+        )
+    return out
+
+
+def neutralize_groups_1d(
+    values: np.ndarray,
+    groups: np.ndarray,
+    mask: np.ndarray,
+    min_size: int = 2,
+) -> np.ndarray:
+    """Subtract same-day group mean. Used for industry-residual labels, not features."""
+    out = np.asarray(values, dtype=np.float32).copy()
+    valid = np.flatnonzero(np.asarray(mask, dtype=bool) & np.isfinite(out))
+    if valid.size == 0:
+        return out
+    g = np.asarray(groups)[valid]
+    for gid in np.unique(g):
+        idx = valid[g == gid]
+        if idx.size < int(min_size):
+            continue
+        out[idx] -= float(out[idx].mean())
+    return out
+
+
+def ols_residual_1d(y: np.ndarray, pred: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Within-day residual of y after OLS on pred. Ranking error left by a frozen model."""
+    out = np.asarray(y, dtype=np.float32).copy()
+    m = np.asarray(mask, dtype=bool) & np.isfinite(out) & np.isfinite(pred)
+    idx = np.flatnonzero(m)
+    if idx.size < 3:
+        return out
+    x = np.asarray(pred, dtype=np.float64)[idx]
+    z = np.asarray(y, dtype=np.float64)[idx]
+    xc = x - x.mean()
+    zc = z - z.mean()
+    var = float(np.dot(xc, xc))
+    if var < 1e-12:
+        out[idx] = zc.astype(np.float32)
+        return out
+    b = float(np.dot(xc, zc) / var)
+    out[idx] = (zc - b * xc).astype(np.float32)
+    return out
+
+
 def build_day_features(
     num_t: np.ndarray,
     cat_t: np.ndarray,
@@ -285,6 +479,46 @@ def build_hist_features(
             )
         )
     return np.concatenate(parts, axis=1)
+
+
+def build_market_state_features(
+    num_t: np.ndarray,
+    mask_x_t: np.ndarray,
+    stock_idx: np.ndarray,
+    feature_cfg: dict[str, Any],
+    *,
+    global_t: int | None = None,
+    panel_num_x: np.ndarray | None = None,
+    panel_mask_x: np.ndarray | None = None,
+) -> np.ndarray:
+    """Broadcast same-day market stats to each selected stock. Uses mask_x only."""
+    n_sel = int(np.asarray(stock_idx).shape[0])
+    width = market_state_width(feature_cfg)
+    if width == 0 or n_sel == 0:
+        return np.zeros((n_sel, width), dtype=np.float32)
+    mkt = market_state_spec(feature_cfg)
+    assert mkt is not None
+    today = _day_market_vector(num_t, mask_x_t, mkt)
+    if today.size != width:
+        raise ValueError(f"market_state width {width} vs built {today.size}")
+    rel_l = int(mkt.get("relative_length") or 0)
+    if rel_l > 0:
+        if panel_num_x is None or panel_mask_x is None or global_t is None:
+            raise ValueError("relative market_state needs panel_num_x, panel_mask_x, global_t")
+        start = max(0, int(global_t) - rel_l)
+        end = int(global_t)
+        if end > start:
+            past = np.stack(
+                [_day_market_vector(panel_num_x[i], panel_mask_x[i], mkt) for i in range(start, end)],
+                axis=0,
+            )
+            mu = past.mean(axis=0)
+            sd = past.std(axis=0)
+            sd = np.where(sd < _EPS, 1.0, sd)
+            today = ((today - mu) / sd).astype(np.float32, copy=False)
+        else:
+            today = np.zeros((width,), dtype=np.float32)
+    return np.broadcast_to(today, (n_sel, width)).copy()
 
 
 def _hist_window_stats(
@@ -386,12 +620,25 @@ def build_sample_features(
     panel_mask_x: np.ndarray | None = None,
 ) -> np.ndarray:
     day = build_day_features(num_t, cat_t, mask_x_t, stock_idx, cat_indices, feature_cfg)
-    if history_spec(feature_cfg) is None:
+    blocks: list[np.ndarray] = [day]
+    if history_spec(feature_cfg) is not None:
+        if panel_num_x is None or panel_mask_x is None:
+            raise ValueError("history features need panel_num_x and panel_mask_x")
+        blocks.append(build_hist_features(panel_num_x, panel_mask_x, global_t, stock_idx, feature_cfg))
+    mkt = build_market_state_features(
+        num_t,
+        mask_x_t,
+        stock_idx,
+        feature_cfg,
+        global_t=global_t,
+        panel_num_x=panel_num_x,
+        panel_mask_x=panel_mask_x,
+    )
+    if mkt.shape[1] > 0:
+        blocks.append(mkt)
+    if len(blocks) == 1:
         return day
-    if panel_num_x is None or panel_mask_x is None:
-        raise ValueError("history features need panel_num_x and panel_mask_x")
-    hist = build_hist_features(panel_num_x, panel_mask_x, global_t, stock_idx, feature_cfg)
-    return np.concatenate([day, hist], axis=1)
+    return np.concatenate(blocks, axis=1)
 
 
 def _stocks_for_day(
@@ -547,7 +794,12 @@ def flatten_masked_rows(
         day_indices.append(idx)
         n_rows += int(idx.size)
 
-    n_feat = n_num * numeric_block_count(feature_cfg) + len(cat_indices) + history_width(feature_cfg)
+    n_feat = (
+        n_num * numeric_block_count(feature_cfg)
+        + len(cat_indices)
+        + history_width(feature_cfg)
+        + market_state_width(feature_cfg)
+    )
     x = np.empty((n_rows, n_feat), dtype=np.float32)
     y = np.empty((n_rows,), dtype=np.float32)
     coords = np.empty((n_rows, 2), dtype=np.int32)

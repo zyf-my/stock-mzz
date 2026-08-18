@@ -1,0 +1,19 @@
+# hist_mkt 训完后用。时序支换成带市场状态的树，截面支仍是 baseline。
+# 不覆盖 task1_fusion.npy / task1_fusion_gru_blend.npy。
+include: configs/default.yaml
+
+inputs:
+  temporal_valid: outputs/hist_mkt_valid.npy
+  temporal_test: outputs/hist_mkt_test.npy
+  cross_section_valid: outputs/baseline_valid.npy
+  cross_section_test: outputs/baseline_test.npy
+  industry_col: 6
+
+fusion:
+  weight_grid: [0.0, 0.25, 0.5, 0.7, 0.85, 1.0]
+
+paths:
+  valid_pred: outputs/fusion_mkt_valid.npy
+  test_pred: outputs/fusion_mkt_test.npy
+  submission: submissions/task1_fusion_mkt.npy
+  lock: outputs/fusion_mkt_lock.json

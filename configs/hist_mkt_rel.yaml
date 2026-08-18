@@ -1,0 +1,18 @@
+# 相对 hist-lgbm-002：市场状态改成「今天相对过去 20 日」的 z-score，特征很少。
+# 绝对水平 hist_mkt-001 掉到 0.0635，树在记训练期覆盖度。不覆盖 hist_mkt / hist_lgbm 产物。
+include: configs/hist_lgbm.yaml
+
+features:
+  market_state:
+    enabled: true
+    include_coverage: true
+    relative_length: 20
+    num_indices: [8, 17, 19, 20]
+    stats: [std]
+
+paths:
+  checkpoint: checkpoints/hist_mkt_rel.txt
+  valid_pred: outputs/hist_mkt_rel_valid.npy
+  test_pred: outputs/hist_mkt_rel_test.npy
+  importance: outputs/hist_mkt_rel_importance.csv
+  submission: submissions/task1_hist_mkt_rel.npy

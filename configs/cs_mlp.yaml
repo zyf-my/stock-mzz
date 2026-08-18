@@ -1,0 +1,37 @@
+# 行业内残差截面 MLP。特征：当天行业 z-score（树几乎没用）+ cat_1 embedding。
+# 不用 raw、不用历史统计、不用 cat_6 当特征。标签先减当天行业均值。
+# 不覆盖 hist_lgbm / fusion_gru_blend 产物。
+include: configs/default.yaml
+
+features:
+  num_indices: [5, 6, 7, 8, 10, 11, 17, 18, 19, 20, 21, 22, 24, 25, 39, 40, 41, 57, 68, 70, 90]
+  industry_col: 6
+  cat_indices: [1]
+  cat_embed_dim: 8
+  clip: 5.0
+  residual_industry: true
+  max_train_stocks_per_day: 800
+
+model:
+  name: cs_mlp
+  hidden_size: 64
+  dropout: 0.1
+  loss: pearson_ic
+  lr: 0.001
+  weight_decay: 0.0001
+  max_epochs: 8
+  patience: 3
+
+train:
+  eval_split: valid
+  fill_invalid: 0.0
+  log_every_days: 400
+
+blend:
+  weight_grid: [0.0, 0.15, 0.25, 0.4, 0.5, 0.7, 1.0]
+
+paths:
+  checkpoint: checkpoints/cs_mlp.pt
+  valid_pred: outputs/cs_mlp_valid.npy
+  test_pred: outputs/cs_mlp_test.npy
+  submission: submissions/task1_cs_mlp.npy

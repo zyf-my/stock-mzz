@@ -171,6 +171,96 @@
 - valid mean RankIC：−0.083801（对照 hist-rank-001 为 −0.021，回归 002 为 0.104192）
 - 结论：**抛弃，停止 LambdaRank。** 正则放轻之后排得更反。y1 已经是截面分位数，MSE 本身就是在拟合排序；LambdaRank 优化的是 NDCG 头部品，和全市场 Spearman 不是同一目标。重要性更集中在 cat_6。不要再开 Ranker 变体。
 
+## hist-mkt-001
+- 日期：2026-08-18
+- 代码/配置：`configs/hist_mkt.yaml`
+- 输入特征：相对 hist-lgbm-002 只加当天全市场覆盖度 + 21 列截面 mean/std（绝对水平）
+- 是否看历史：窗口 = 10；市场状态只用当天 mask_x
+- 模型：LightGBM 回归，超参与 002 相同
+- 损失：MSE 回归 y1
+- valid mean RankIC：0.063500（对照 002 为 0.104192）
+- 耗时 / 硬件：合计 418s
+- 结论：**抛弃。** 重要性第三就是 `mkt_coverage`，树在用覆盖度切训练期制度，验证集崩了。不要把绝对市场水平当特征。不要跑 `fusion_mkt`。
+
+## hist-mkt-rel-001
+- 日期：2026-08-18
+- 代码/配置：`configs/hist_mkt_rel.yaml`
+- 输入特征：相对 002，市场状态改成相对过去 20 日 z-score；只留覆盖度 + 4 列 std
+- 是否看历史：窗口 = 10；相对统计只用 `[t-20, t)`
+- 模型：LightGBM 回归，超参与 002 相同
+- 损失：MSE 回归 y1
+- valid mean RankIC：0.101414（对照 002 为 0.104192，融合 GRU 版 0.110069）
+- 耗时 / 硬件：合计 439s
+- 结论：**抛弃。** 不再崩，但没超过 002。主提交仍是 `task1_fusion_gru_blend.npy`（0.110）。停止往树上加全市场标量。
+
+## cs-mlp-001
+- 日期：2026-08-18
+- 代码/配置：`configs/cs_mlp.yaml`，`scripts/train_cs_mlp.py`
+- 输入特征：当天 21 列行业内 z-score + cat_1 embedding；不用 raw、历史、cat_6
+- 是否看历史：窗口 = 0
+- 模型：2 层 MLP hidden=64；每天最多 800 只
+- 损失：行业残差标签上的 Pearson IC；验收仍是对原始 y1 的 RankIC
+- valid mean RankIC：0.091768（对照 GRU 0.0865，截面树 0.0999，树融合 0.1062）
+- 耗时 / 硬件：合计 377s，CPU
+- 结论：**作为第四支保留。** 单模弱于树，但与 `fusion_gru_blend` 日均 Spearman 0.681（低于 0.8）。和树/GRU 的相关约 0.58–0.61。
+- 下一步：已与 0.110 做 rank_blend，见 fusion-cs-mlp-001
+
+## fusion-cs-mlp-001
+- 日期：2026-08-18
+- 代码/配置：`scripts/train_cs_mlp.py` 内嵌融合（不覆盖 `task1_fusion_gru_blend.npy`）
+- 输入特征：cs_mlp valid + fusion_gru_blend valid
+- 模型：锁定 rank_blend，cs_mlp 权重 0.25
+- valid mean RankIC：0.111264（对照 fusion_gru_blend 0.110069）
+- 结论：**小幅超过 0.110，作为新候选。** 产物 `submissions/task1_fusion_cs_mlp.npy`。243 天上 +0.001 仍可能有噪声，但相关 0.68 且 0.15/0.25/0.4 三档都 ≥0.110。未改旧主文件。
+
+## hard-resid-001
+- 日期：2026-08-18
+- 代码/配置：`configs/hard_resid.yaml`，`scripts/train_hard_resid.py`
+- 输入特征：与 cs_mlp 相同（21 列行业 z-score + cat_1）；难日 = hist_lgbm 在 **train** 上逐日 RankIC 最低 25%（608/2432 天，阈值 0.178，不看 valid）
+- 是否看历史：窗口 = 0；树分数只用来造 OLS 残差标签
+- 模型：小 MLP hidden=32，dropout=0.2，weight_decay=1e-3，难日重复 2 次；约 2153 参数
+- 损失：对 `y1 ~ hist_lgbm` 的当天 OLS 残差做 Pearson IC；早停看与 0.111 的 rank_blend(0.25)
+- valid mean RankIC：残差单支 **-0.083400**；与 fusion_cs_mlp 日均 Spearman **-0.7129**；融回 0.111 后锁定 raw_blend 0.111266（相对 0.111264 的 2e-6，尺度淹没，不算涨）
+- train 难日均值 RankIC：0.1262（易日 0.2882）——train 上「最差 25%」仍然正、且远好于 valid 崩溃日
+- 耗时 / 硬件：合计 386s，CPU；树 train 预测 146s
+- 结论：**抛弃。** 难日定义没有泄露 valid，但残差支学成了 0.111 的反相。说明树在 train 上排错的部分搬不到 valid；再加重采样这些天只会拟合过拟合残差。未覆盖 `task1_fusion_cs_mlp.npy`。主候选仍是 0.111264。
+- 下一步：不要再从 train 残差/难日上抠同一套截面特征。过拟合更可能来自主模型容量，而不是「还有一块可学的难日残差」。
+
+## hist-lgbm-iter-001
+- 日期：2026-08-18
+- 代码/配置：`scripts/eval_lgbm_iters.py`（冻结 `hist_lgbm.txt`，不重训）
+- 输入特征：与 hist-lgbm-002 相同
+- 是否看历史：窗口 = 10，source=cs_zscore
+- 模型：同一棵 400 棵树，推理时只用前 50/100/…/400 棵
+- 损失：不训练；验收 RankIC
+- valid mean RankIC：50→0.1005，100→0.1015，200→0.1020，250→0.1032，300→0.1032，350→0.1034，**400→0.104192**
+- train 子集（每 8 日，304 天）：50→0.154，200→0.211，400→0.247
+- 耗时 / 硬件：合计 259s
+- 结论：**抛弃「往回砍树」。** train 涨得比 valid 快（过拟合是真的），但 valid 仍随轮数单调上升，峰值就在 400。提早停只会把 valid 从 0.104 降到 0.102–0.103。未覆盖 002 产物。主候选仍是 0.111264。
+- 下一步：不要为过拟合再减 leaves / 减 n_estimators。树还没过 valid 的峰。
+
+## fusion-gru-cov-001
+- 日期：2026-08-19
+- 代码/配置：`scripts/eval_coverage_gru.py`（不重训）
+- 输入特征：GRU vs 树融合 `fusion_valid`；门控只用当天 `mask_x` 股票数
+- 是否看历史：沿用已有模型
+- 模型：覆盖度分位 40/50/60 × GRU 权重 {0.15,0.25,0.4} × raw/rank。旧 FusionModel 门控只搜 ≥0.5 且只用 rank，这里改掉
+- 损失：不训练；验收 RankIC
+- valid mean RankIC：锁定 raw，tau=4546（60 分位），低覆盖 GRU 0.25、高覆盖 0.4 → **0.111078**（对照全局 0.25 为 0.110069）
+- 诊断：覆盖度与树 RankIC 相关 −0.21；Q4（股票最多）树 0.058、GRU 0.100、全局 0.25 融合只有 0.074。前 8 名全是「挤的天多听 GRU」
+- 耗时 / 硬件：合计 191s，主要是读 panel
+- 结论：**作为融合规则保留。** 方向稳定，不是单格刷分。产物 `submissions/task1_fusion_gru_cov.npy`，未覆盖 0.110。仍低于带 cs_mlp 的 0.111264，见下条。
+- 下一步：已叠 cs_mlp，见 fusion-cs-mlp-cov-001
+
+## fusion-cs-mlp-cov-001
+- 日期：2026-08-19
+- 代码/配置：同上脚本内嵌融合
+- 输入特征：cs_mlp + 覆盖度门控 GRU/树
+- 模型：锁定 rank_blend，cs_mlp 权重 0.15
+- valid mean RankIC：**0.111971**（对照 fusion_cs_mlp 0.111264，门控 GRU/树 0.111078）
+- 结论：**小幅超过 0.111，作为新候选。** 产物 `submissions/task1_fusion_cs_mlp_cov.npy`。243 天上 +0.0007 仍可能有噪声，但门控方向与 Q4 诊断一致。未覆盖 `task1_fusion_cs_mlp.npy`。离 0.12 仍约 0.008。
+- 下一步：不要再加密覆盖度网格。下一条若做，用 GRU 关掉当天，或把树加到 600 棵。
+
 模板：
 
 ```text

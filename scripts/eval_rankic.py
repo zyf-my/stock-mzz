@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.config import load_config, resolve_data_path  # noqa: E402
-from src.dataset import load_panel, slice_split  # noqa: E402
+from src.dataset import load_eval_splits, load_split_cache, split_cache_dir  # noqa: E402
 from src.metrics import mean_rank_ic, rank_ic_series  # noqa: E402
 
 
@@ -30,8 +30,19 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    data = load_panel(str(resolve_data_path(cfg, args.data)))
-    split = slice_split(data, args.split)
+    cache = split_cache_dir(ROOT)
+    try:
+        split = load_split_cache(args.split, cache)
+        print(f"labels from cache {cache / (args.split + '.npz')}")
+    except FileNotFoundError:
+        data_path = resolve_data_path(cfg, args.data)
+        splits, src = load_eval_splits(
+            cache_dir=cache,
+            data_path=data_path,
+            splits=(args.split,),
+        )
+        split = splits[args.split]
+        print(f"labels from {src}")
     pred = np.load(args.pred)
     label = split["y1"]
     mask = split["mask_y"]

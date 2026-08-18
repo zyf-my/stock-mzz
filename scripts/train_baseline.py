@@ -72,6 +72,13 @@ def main() -> None:
             f"source={hist.get('source', 'cs_zscore')} cols={len(hist.get('num_indices') or [])} "
             f"stats={hist.get('stats')} short_stats={hist.get('short_stats')}"
         )
+    mkt = feature_cfg.get("market_state") or {}
+    if mkt.get("enabled"):
+        print(
+            f"market_state coverage={mkt.get('include_coverage', True)} "
+            f"relative_length={mkt.get('relative_length')} "
+            f"cols={len(mkt.get('num_indices') or [])} stats={mkt.get('stats')}"
+        )
 
     data_path = resolve_data_path(cfg, args.data)
     print(f"data={data_path}")

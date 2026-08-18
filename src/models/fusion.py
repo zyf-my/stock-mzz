@@ -12,6 +12,29 @@ import numpy as np
 from scipy.stats import rankdata
 
 
+def coverage_gate_blend(
+    temporal: np.ndarray,
+    cross_section: np.ndarray,
+    mask_x: np.ndarray,
+    tau: float,
+    weight_low: float,
+    weight_high: float,
+    space: str = "raw",
+) -> np.ndarray:
+    """Same-day coverage gate. High coverage uses weight_high on the temporal branch."""
+    if space == "rank":
+        temporal = panel_cs_rank(temporal, mask_x)
+        cross_section = panel_cs_rank(cross_section, mask_x)
+    elif space != "raw":
+        raise ValueError(f"unknown coverage space {space!r}")
+    n_x = np.asarray(mask_x).sum(axis=1)
+    high = n_x >= float(tau)
+    pred = np.empty_like(temporal, dtype=np.float32)
+    pred[~high] = linear_blend(temporal[~high], cross_section[~high], weight_low)
+    pred[high] = linear_blend(temporal[high], cross_section[high], weight_high)
+    return pred
+
+
 def linear_blend(temporal: np.ndarray, cross_section: np.ndarray, weight: float) -> np.ndarray:
     """weight 是时序支的权重，0 表示纯截面，1 表示纯时序。"""
     if temporal.shape != cross_section.shape:
