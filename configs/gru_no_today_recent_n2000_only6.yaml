@@ -1,0 +1,13 @@
+# 只在 6 列强单因子、树几乎不用的列上跑同一套 n2000 GRU。
+# 不把它们并进原来的 21 列网络（x6 与原 GRU 相关 0.95）。作为独立融合支。不覆盖 x6 / n2000。
+
+include: configs/gru_no_today_recent_n2000.yaml
+
+features:
+  num_indices: [42, 58, 66, 69, 73, 74]
+
+paths:
+  checkpoint: checkpoints/gru_no_today_recent_n2000_only6.pt
+  valid_pred: outputs/gru_no_today_recent_n2000_only6_valid.npy
+  test_pred: outputs/gru_no_today_recent_n2000_only6_test.npy
+  submission: submissions/task1_gru_no_today_recent_n2000_only6.npy

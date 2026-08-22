@@ -1,0 +1,14 @@
+# 相对 gru_no_today_recent_n2000：去掉每天 2000 只上限，当天 mask_y 全用。
+# 仍是末 800 天、不含当天、MSE。valid 每天 4242+ 只全市场排序，训练不再抽子集。
+# 不覆盖 n2000 产物。
+
+include: configs/gru_no_today_recent_n2000.yaml
+
+features:
+  max_train_stocks_per_day: null
+
+paths:
+  checkpoint: checkpoints/gru_no_today_recent_nfull.pt
+  valid_pred: outputs/gru_no_today_recent_nfull_valid.npy
+  test_pred: outputs/gru_no_today_recent_nfull_test.npy
+  submission: submissions/task1_gru_no_today_recent_nfull.npy

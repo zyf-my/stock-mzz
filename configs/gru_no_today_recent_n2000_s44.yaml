@@ -1,0 +1,11 @@
+# 相对 n2000：只改随机种子。用来和 seed 42 做袋装，不覆盖 42 的产物。
+
+include: configs/gru_no_today_recent_n2000.yaml
+
+seed: 44
+
+paths:
+  checkpoint: checkpoints/gru_no_today_recent_n2000_s44.pt
+  valid_pred: outputs/gru_no_today_recent_n2000_s44_valid.npy
+  test_pred: outputs/gru_no_today_recent_n2000_s44_test.npy
+  submission: submissions/task1_gru_no_today_recent_n2000_s44.npy

@@ -1,0 +1,12 @@
+# 相对 n2000：只把拟合窗口从末 800 天改为末 400 天。覆盖更接近 valid。不覆盖 n2000 产物。
+
+include: configs/gru_no_today_recent_n2000.yaml
+
+train:
+  recent_days: 400
+
+paths:
+  checkpoint: checkpoints/gru_no_today_recent400_n2000.pt
+  valid_pred: outputs/gru_no_today_recent400_n2000_valid.npy
+  test_pred: outputs/gru_no_today_recent400_n2000_test.npy
+  submission: submissions/task1_gru_no_today_recent400_n2000.npy

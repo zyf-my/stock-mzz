@@ -1,0 +1,12 @@
+# 相对 n2000：只把窗口 10 改成 20。树历史统计是 L=10；本支看更长轨迹。不覆盖 n2000 / x6 产物。
+
+include: configs/gru_no_today_recent_n2000.yaml
+
+features:
+  length: 20
+
+paths:
+  checkpoint: checkpoints/gru_no_today_recent_n2000_l20.pt
+  valid_pred: outputs/gru_no_today_recent_n2000_l20_valid.npy
+  test_pred: outputs/gru_no_today_recent_n2000_l20_test.npy
+  submission: submissions/task1_gru_no_today_recent_n2000_l20.npy

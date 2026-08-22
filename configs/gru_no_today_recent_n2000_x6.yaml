@@ -1,0 +1,13 @@
+# 相对 n2000：只追加树几乎没用、但单因子较强的 6 列：42, 58, 66, 69, 73, 74。
+# 仍是末 800 天、不含当天、每天 2000 只、MSE。不覆盖 n2000 产物。
+
+include: configs/gru_no_today_recent_n2000.yaml
+
+features:
+  num_indices: [5, 6, 7, 8, 10, 11, 17, 18, 19, 20, 21, 22, 24, 25, 39, 40, 41, 42, 57, 58, 66, 68, 69, 70, 73, 74, 90]
+
+paths:
+  checkpoint: checkpoints/gru_no_today_recent_n2000_x6.pt
+  valid_pred: outputs/gru_no_today_recent_n2000_x6_valid.npy
+  test_pred: outputs/gru_no_today_recent_n2000_x6_test.npy
+  submission: submissions/task1_gru_no_today_recent_n2000_x6.npy

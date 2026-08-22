@@ -1,0 +1,15 @@
+# 相对 gru_no_today_recent_n2000：只把窗口特征从全市场 CS z-score 改成行业内 z-score。
+# 仍是末 800 天、不含当天、每天 2000 只、MSE。cs_mlp 用的是当天行业残差；本支看行业相对强弱轨迹。
+# 不覆盖 n2000 / fusion 产物。
+
+include: configs/gru_no_today_recent_n2000.yaml
+
+features:
+  source: industry_zscore
+  industry_col: 6
+
+paths:
+  checkpoint: checkpoints/gru_ind_recent_n2000.pt
+  valid_pred: outputs/gru_ind_recent_n2000_valid.npy
+  test_pred: outputs/gru_ind_recent_n2000_test.npy
+  submission: submissions/task1_gru_ind_recent_n2000.npy
