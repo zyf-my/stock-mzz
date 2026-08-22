@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from src.dataset import gather_windows, precompute_cs_cols
+from src.dataset import gather_windows, precompute_cs_cols, precompute_ind_cols
 
 
 class GRUNet(nn.Module):
@@ -79,6 +79,8 @@ class GRUModel:
         self.cat_indices = [int(i) for i in (cfg.get("cat_indices") or [])]
         self.cat_embed_dim = int(cfg.get("cat_embed_dim", 8))
         self.loss_name = str(cfg.get("loss", "mse")).lower()
+        self.source = str(cfg.get("source", "cs_zscore"))
+        self.industry_col = int(cfg.get("industry_col", 6))
         self.net: GRUNet | None = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.cs_sel: np.ndarray | None = None
@@ -86,11 +88,23 @@ class GRUModel:
         self.cat_cardinalities: list[int] = []
 
     def prepare_features(self, data: dict[str, Any]) -> None:
-        print(f"precompute CS z-score cols={self.cols} T={data['num_x'].shape[0]}")
-        self.cs_sel = precompute_cs_cols(data["num_x"], data["mask_x"], self.cols)
+        src = self.source
+        print(f"precompute {src} cols={self.cols} T={data['num_x'].shape[0]}")
+        if src in {"industry_zscore", "ind_zscore", "industry"}:
+            self.cs_sel = precompute_ind_cols(
+                data["num_x"],
+                data["mask_x"],
+                data["cat_x"],
+                self.cols,
+                self.industry_col,
+            )
+        elif src in {"cs_zscore", "cs"}:
+            self.cs_sel = precompute_cs_cols(data["num_x"], data["mask_x"], self.cols)
+        else:
+            raise ValueError(f"unknown GRU feature source {src!r}")
         if self.clip is not None:
             np.clip(self.cs_sel, -float(self.clip), float(self.clip), out=self.cs_sel)
-        print(f"cs_sel={self.cs_sel.shape} ~{self.cs_sel.nbytes / 1e9:.2f}GB device={self.device}")
+        print(f"cs_sel={self.cs_sel.shape} ~{self.cs_sel.nbytes / 1e9:.2f}GB source={src} device={self.device}")
         if self.cat_indices:
             self.cat_sel = np.asarray(data["cat_x"][..., self.cat_indices], dtype=np.int32)
             maxes = self.cat_sel.max(axis=(0, 1))
@@ -158,7 +172,8 @@ class GRUModel:
         n_params = sum(p.numel() for p in self.net.parameters())
         print(
             f"gru params={n_params} hidden={self.hidden_size} L={self.length} "
-            f"include_t={self.include_current} loss={self.loss_name} cats={self.cat_indices or '-'}"
+            f"include_t={self.include_current} source={self.source} "
+            f"loss={self.loss_name} cats={self.cat_indices or '-'}"
         )
 
         days = list(range(int(train_start), int(train_end)))
@@ -279,6 +294,8 @@ class GRUModel:
             "cat_embed_dim": self.cat_embed_dim,
             "cat_cardinalities": self.cat_cardinalities,
             "loss": self.loss_name,
+            "source": self.source,
+            "industry_col": self.industry_col,
         }
         path.with_suffix(path.suffix + ".meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2),
@@ -303,6 +320,8 @@ class GRUModel:
             self.cat_embed_dim = int(meta.get("cat_embed_dim", self.cfg.get("cat_embed_dim", 8)))
             self.cat_cardinalities = [int(c) for c in (meta.get("cat_cardinalities") or [])]
             self.loss_name = str(meta.get("loss", self.cfg.get("loss", "mse"))).lower()
+            self.source = str(meta.get("source", self.cfg.get("source", "cs_zscore")))
+            self.industry_col = int(meta.get("industry_col", self.cfg.get("industry_col", 6)))
         self.net = self._build_net()
         try:
             state = torch.load(path, map_location=self.device, weights_only=True)

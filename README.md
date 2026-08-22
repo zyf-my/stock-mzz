@@ -4,9 +4,9 @@
 
 **先读 [`计划.md`](计划.md) 和 [`experiments.md`](experiments.md)。**
 
-当前最强本地 valid **0.117177**（末 800 天 GRU 每天 2000 只 + 覆盖度门控 + 原行业 MLP）。门槛 0.12 未到，测试集未作为选模依据。产物不在 git 里：`submissions/task1_fusion_recent_gru_n2000_cov_mlp.npy`。
+当前最强本地 valid **0.120168**（x6 GRU + only6 GRU，覆盖度门控 w_high=0.6 + 原行业 MLP）。本地 valid 刚过门槛 0.12。测试集未作为选模依据。产物不在 git 里：`submissions/task1_fusion_x6_only6_w06_cov_mlp.npy`。
 
-不要把 `configs/fusion_gru_blend.yaml`（0.110）或更早的融合当主方案。
+不要把 0.117 的 `task1_fusion_recent_gru_n2000_cov_mlp.npy` 或更早的融合当主方案。
 
 ## 队友接手
 

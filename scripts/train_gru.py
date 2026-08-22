@@ -59,6 +59,7 @@ def main() -> None:
     print(f"seed={seed}")
     print(
         f"GRU L={feat.get('length')} include_t={feat.get('include_current_day', True)} "
+        f"source={feat.get('source', 'cs_zscore')} "
         f"cols={len(feat.get('num_indices') or [])} hidden={model_cfg.get('hidden_size')} "
         f"max_train_stocks={feat.get('max_train_stocks_per_day')} "
         f"loss={model_cfg.get('loss', 'mse')} cats={feat.get('cat_indices') or '-'}"
