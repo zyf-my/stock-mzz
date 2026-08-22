@@ -1,0 +1,13 @@
+# 相对 x6 GRU：只把 lr 0.001→0.0003。epoch 1 之后不再直接崩，看能不能得到更好的峰。
+# 不覆盖 x6。
+
+include: configs/gru_no_today_recent_n2000_x6.yaml
+
+model:
+  lr: 0.0003
+
+paths:
+  checkpoint: checkpoints/gru_x6_lr3e4.pt
+  valid_pred: outputs/gru_x6_lr3e4_valid.npy
+  test_pred: outputs/gru_x6_lr3e4_test.npy
+  submission: submissions/task1_gru_x6_lr3e4.npy

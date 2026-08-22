@@ -1,0 +1,13 @@
+# 相对 only6-with-today：只把损失改成 Pearson IC。这 6 列与树相关低，IC 不一定会吃掉互补性。
+# 不覆盖 with_today / x6。
+
+include: configs/gru_only6_with_today.yaml
+
+model:
+  loss: pearson_ic
+
+paths:
+  checkpoint: checkpoints/gru_only6_today_ic.pt
+  valid_pred: outputs/gru_only6_today_ic_valid.npy
+  test_pred: outputs/gru_only6_today_ic_test.npy
+  submission: submissions/task1_gru_only6_today_ic.npy

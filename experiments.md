@@ -2,7 +2,7 @@
 
 每次有效训练追加一条。没有数字的「大概好了」不算完成。对比实验一次只改窗口、特征集合、损失、模型四者之一。
 
-**当前最强：valid mean RankIC 0.120168**（x6 GRU + only6 GRU 混合，覆盖度门控 w_high=0.6，再叠原 cs_mlp）。本地 valid 刚过门槛 0.12。测试集未作为选模依据。
+**当前最强：valid 0.120542，平台 test 0.125588**（同一文件 `task1_fusion_next6_wt_mlp6.npy`：x6 + only6-with-today + next6 GRU，覆盖度门控 w_high=0.6，cs_mlp 与 only6-MLP 混合）。官方门槛 0.12 已过。测试分只记结果，不回灌调参。
 
 ## cs-lgbm-001
 - 日期：2026-08-17
@@ -456,6 +456,98 @@
 - 诊断：与 x6 相关 0.87，与树 0.47，与 mlp 0.52。only6 权重在 {0.15,0.25,0.4} 上单调，0.4 是峰（0.45/0.50 回落）
 - 结论：**保留并作为当前主融合。** 0.4×only6 + 0.6×x6，覆盖度门控 tau=4546、w=0.25/0.6，再 rank-blend 原 cs_mlp 0.15 → **0.120168**。产物 `submissions/task1_fusion_x6_only6_w06_cov_mlp.npy`，未覆盖 0.117 文件。本地 valid 刚过 0.12。
 - 下一步：阶段 6 文档；测试集只推理这一版，不要用测试分回灌。
+
+## cs-mlp-only6-001
+- 日期：2026-08-22
+- 代码/配置：`configs/cs_mlp_only6.yaml`
+- 输入特征：当天行业 z-score 仅 42, 58, 66, 69, 73, 74 + cat_1；行业残差 Pearson IC
+- 是否看历史：窗口 = 0
+- 模型：同 cs_mlp；epoch 2 最佳 0.0806
+- 损失：行业残差 Pearson IC
+- valid mean RankIC：0.080578（对照原 cs_mlp 0.091768）
+- 诊断：与 0.120 相关 0.63，与原 mlp 0.72，与 only6 GRU 0.60。单独叠到 0.120 不涨；和原 mlp 按 0.4 混合再叠门控 → **0.120342**（标准网格 0.15/0.25/0.4 都超过 0.120168，0.5 为 0.120361 后回落）
+- 结论：**作为 MLP 混合支保留。** 产物 `submissions/task1_fusion_x6_only6_mlp6_cov_mlp.npy`，未覆盖 0.120168 文件。幅度小，243 天上仍可能有噪声，但三档同向。
+- 下一步：only6 GRU 打开当天，补这 6 列的当日轨迹步。
+
+## gru-only6-with-today-001
+- 日期：2026-08-22
+- 代码/配置：`configs/gru_only6_with_today.yaml`
+- 输入特征：与 only6 相同 6 列，只把 include_current_day 打开
+- 是否看历史：窗口 = 10，含当天；末 800 天；每天 2000 只
+- 模型：同 GRU；epoch 1 最佳 0.0903
+- 损失：MSE
+- valid mean RankIC：0.090323（对照不含当天 0.084659）
+- 诊断：与 no-today only6 相关 0.96。替换进锁死融合（x6 0.6 / only6 0.4，门控 0.25/0.6，mlp6 混合 0.4）→ **0.120413**
+- 结论：**替换 no-today only6。** 产物 `submissions/task1_fusion_wt_mlp6_cov_mlp.npy`。未覆盖 0.120168。
+- 下一步：6 列当天树；以及 only6 改 Pearson IC。
+
+## lgbm-only6-001
+- 日期：2026-08-22
+- 代码/配置：`configs/lgbm_only6.yaml`（`dataset.num_indices` 切片）
+- 输入特征：当天 6 列 CS z-score + 行业 z-score；无 raw、无类别、无历史
+- 是否看历史：窗口 = 0
+- 模型：LightGBM 回归，超参与 baseline 相同
+- 损失：MSE
+- valid mean RankIC：0.083407
+- 结论：**抛弃。** 与 cs_mlp_only6 相关 0.85，叠到 0.120413 不涨。
+- 下一步：only6-with-today 改 Pearson IC。
+
+## gru-only6-today-ic-001
+- 日期：2026-08-22
+- 代码/配置：`configs/gru_only6_today_ic.yaml`
+- 输入特征：与 with-today only6 相同，只改 Pearson IC 损失
+- 是否看历史：窗口 = 10，含当天
+- 模型：同 GRU；epoch 1 最佳 0.0827
+- 损失：pearson_ic
+- valid mean RankIC：0.082728（对照 MSE 0.090323）
+- 结论：**抛弃。** 替换进锁死融合掉到 0.113。这 6 列上 IC 损失同样伤门控。
+- 下一步：给时序树历史追加这 6 列。
+
+## hist-lgbm-x6-001
+- 日期：2026-08-22
+- 代码/配置：`configs/hist_lgbm_x6.yaml`
+- 输入特征：相对 hist_lgbm-002，历史 CS 统计追加 42, 58, 66, 69, 73, 74
+- 是否看历史：窗口 = 10，source=cs_zscore
+- 模型：LightGBM 回归，超参与 002 相同
+- 损失：MSE
+- valid mean RankIC：0.099782（对照 002 为 0.104192）
+- 结论：**抛弃。** 多 6 列历史统计把树从 0.104 降到 0.100。不要改 002 的历史列集合。
+- 下一步：x6 GRU 降低学习率。
+
+## gru-x6-lr3e4-001
+- 日期：2026-08-22
+- 代码/配置：`configs/gru_x6_lr3e4.yaml`
+- 输入特征：与 x6 相同，只把 lr 0.001→0.0003
+- 是否看历史：窗口 = 10，不含当天
+- 模型：同 GRU；epoch 1 最佳 0.0836，仍然随后崩
+- 损失：MSE
+- valid mean RankIC：0.083553（对照 x6 为 0.092888）
+- 结论：**抛弃。** 降学习率让单轮拟合不足，融合掉到 0.117。
+- 下一步：下一档未用列单独做 GRU。
+
+## gru-next6-with-today-001
+- 日期：2026-08-22
+- 代码/配置：`configs/gru_next6_with_today.yaml`，`scripts/eval_next6_fusion.py`
+- 输入特征：38, 72, 47, 3, 1, 4（末 800 天 subsample 上未进 x6 的最强列）
+- 是否看历史：窗口 = 10，含当天；末 800 天；每天 2000 只
+- 模型：同 GRU；epoch 1 最佳 0.0849
+- 损失：MSE
+- valid mean RankIC：0.084857
+- 诊断：与 only6-today 相关 0.70，与 x6 0.61，与树 0.52。标准网格 0.15/0.25/0.4 里 0.15 最好
+- 结论：**保留为第三支 GRU。** 0.15×next6 + 0.85×(0.4×only6-today+0.6×x6)，门控 0.25/0.6，mlp6 混合 0.4 → **0.120542**。产物 `submissions/task1_fusion_next6_wt_mlp6.npy`。
+- 下一步：不要再往树上塞这 6 列。平台试分见下条。
+
+## platform-probe-001
+- 日期：2026-08-22
+- 代码/配置：锁定配方 `scripts/eval_next6_fusion.py`，文件 `submissions/task1_fusion_next6_wt_mlp6.npy`
+- 输入特征：与 `gru-next6-with-today-001` 融合产物相同
+- 是否看历史：同锁定配方，未改权重
+- 模型：不训练；靖戈平台对测试集打分
+- 损失：—
+- valid mean RankIC：0.120542（本地，选模用）
+- 平台 test mean RankIC：**0.125588**
+- 结论：**过官方门槛 0.12。** test 高于 valid，不像把验证集搜穿。这是试分，不是友安杯整包终稿。
+- 下一步：锁死本文件。不要用测试分海搜超参。剩下做 README / 说明书。
 
 模板：
 

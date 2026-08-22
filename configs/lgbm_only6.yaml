@@ -1,0 +1,20 @@
+# 只在树几乎没用的 6 列上做当天截面 LightGBM。关掉 raw 和类别，避免再学 cat_1/cat_6。
+# 不覆盖 baseline / hist_lgbm。
+
+include: configs/baseline.yaml
+
+features:
+  num_indices: [42, 58, 66, 69, 73, 74]
+  include_raw: false
+  cs_zscore: true
+  industry_zscore: true
+  cat_indices: []
+  use_stock_id_cat: false
+  max_train_stocks_per_day: 800
+
+paths:
+  checkpoint: checkpoints/lgbm_only6.txt
+  valid_pred: outputs/lgbm_only6_valid.npy
+  test_pred: outputs/lgbm_only6_test.npy
+  importance: outputs/lgbm_only6_importance.csv
+  submission: submissions/task1_lgbm_only6.npy

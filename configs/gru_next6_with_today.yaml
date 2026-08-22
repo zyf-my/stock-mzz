@@ -1,0 +1,14 @@
+# 下一档未进 x6 的强单因子：38, 72, 47, 3, 1, 4。配方对齐 only6-with-today。
+# 不覆盖 x6 / only6。
+
+include: configs/gru_only6_with_today.yaml
+
+features:
+  num_indices: [38, 72, 47, 3, 1, 4]
+  include_current_day: true
+
+paths:
+  checkpoint: checkpoints/gru_next6_with_today.pt
+  valid_pred: outputs/gru_next6_with_today_valid.npy
+  test_pred: outputs/gru_next6_with_today_test.npy
+  submission: submissions/task1_gru_next6_with_today.npy

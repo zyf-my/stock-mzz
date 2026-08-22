@@ -1,0 +1,13 @@
+# 相对 cs_mlp：只把特征换成树几乎不用的 6 列。当天行业 z-score + 行业残差 Pearson IC。
+# only6 GRU 看的是这 6 列的过去轨迹、不含当天；本支补当天。不覆盖原 cs_mlp。
+
+include: configs/cs_mlp.yaml
+
+features:
+  num_indices: [42, 58, 66, 69, 73, 74]
+
+paths:
+  checkpoint: checkpoints/cs_mlp_only6.pt
+  valid_pred: outputs/cs_mlp_only6_valid.npy
+  test_pred: outputs/cs_mlp_only6_test.npy
+  submission: submissions/task1_cs_mlp_only6.npy

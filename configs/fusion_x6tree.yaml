@@ -1,0 +1,13 @@
+# 用 hist_lgbm_x6 替换原时序树，再和 baseline 融合。不覆盖 fusion_valid。
+
+include: configs/fusion.yaml
+
+inputs:
+  temporal_valid: outputs/hist_lgbm_x6_valid.npy
+  temporal_test: outputs/hist_lgbm_x6_test.npy
+
+paths:
+  valid_pred: outputs/fusion_x6tree_valid.npy
+  test_pred: outputs/fusion_x6tree_test.npy
+  submission: submissions/task1_fusion_x6tree.npy
+  lock: outputs/fusion_x6tree_lock.json

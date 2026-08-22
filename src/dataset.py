@@ -241,6 +241,14 @@ def _day_market_vector(num_t: np.ndarray, mask_x_t: np.ndarray, mkt: dict[str, A
     return np.asarray(vec, dtype=np.float32)
 
 
+def resolve_num_indices(feature_cfg: dict[str, Any], n_num_full: int) -> list[int]:
+    """Column ids for same-day numeric blocks. None/empty means all Nn columns."""
+    raw = feature_cfg.get("num_indices")
+    if not raw:
+        return list(range(int(n_num_full)))
+    return [int(i) for i in raw]
+
+
 def numeric_block_count(feature_cfg: dict[str, Any]) -> int:
     n = 0
     if feature_cfg.get("include_raw", True):
@@ -429,6 +437,11 @@ def build_day_features(
 ) -> np.ndarray:
     """Build rows for selected stocks. Z-score stats always use the full day's mask_x."""
     mask = np.asarray(mask_x_t, dtype=bool)
+    cols = feature_cfg.get("num_indices")
+    if cols:
+        num_t = np.asarray(num_t[:, [int(i) for i in cols]], dtype=np.float32)
+    else:
+        num_t = np.asarray(num_t, dtype=np.float32)
     blocks: list[np.ndarray] = []
     if feature_cfg.get("include_raw", True):
         blocks.append(np.asarray(num_t[stock_idx], dtype=np.float32))
@@ -788,7 +801,8 @@ def flatten_masked_rows(
         cat_indices = list(cat_indices)
         feature_cfg.setdefault("cat_indices", cat_indices)
 
-    n_days, n_stocks, n_num = split_data["num_x"].shape
+    n_days, n_stocks, n_num_full = split_data["num_x"].shape
+    n_num = len(resolve_num_indices(feature_cfg, n_num_full))
     max_stocks = feature_cfg.get("max_train_stocks_per_day") if require_label else None
     rng = np.random.default_rng(seed)
     stratify = bool(feature_cfg.get("stratify_industry", False))

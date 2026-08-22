@@ -1,0 +1,13 @@
+# 相对 only6：只把 include_current_day 打开。这 6 列当天几乎没进树，轨迹支此前故意不含当天。
+# 不覆盖 only6 / x6 产物。
+
+include: configs/gru_no_today_recent_n2000_only6.yaml
+
+features:
+  include_current_day: true
+
+paths:
+  checkpoint: checkpoints/gru_only6_with_today.pt
+  valid_pred: outputs/gru_only6_with_today_valid.npy
+  test_pred: outputs/gru_only6_with_today_test.npy
+  submission: submissions/task1_gru_only6_with_today.npy

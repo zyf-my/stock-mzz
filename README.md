@@ -4,9 +4,9 @@
 
 **先读 [`计划.md`](计划.md) 和 [`experiments.md`](experiments.md)。**
 
-当前最强本地 valid **0.120168**（x6 GRU + only6 GRU，覆盖度门控 w_high=0.6 + 原行业 MLP）。本地 valid 刚过门槛 0.12。测试集未作为选模依据。产物不在 git 里：`submissions/task1_fusion_x6_only6_w06_cov_mlp.npy`。
+当前最强：本地 valid **0.120542**，平台测试集 **0.125588**（同一文件：x6 + only6-today + next6 GRU，覆盖度门控 w_high=0.6，原行业 MLP 与 6 列 MLP 混合）。官方门槛 0.12 已过。测试分只记结果，不回灌调参。产物不在 git 里：`submissions/task1_fusion_next6_wt_mlp6.npy`。
 
-不要把 0.117 的 `task1_fusion_recent_gru_n2000_cov_mlp.npy` 或更早的融合当主方案。
+不要把 0.117 / 0.120168 的旧融合当主方案。
 
 ## 队友接手
 
