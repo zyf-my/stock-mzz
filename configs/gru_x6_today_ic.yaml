@@ -1,0 +1,12 @@
+# x6 + include_current_day + Pearson IC loss.
+
+include: configs/gru_x6_with_today.yaml
+
+model:
+  loss: pearson_ic
+
+paths:
+  checkpoint: checkpoints/gru_x6_today_ic.pt
+  valid_pred: outputs/gru_x6_today_ic_valid.npy
+  test_pred: outputs/gru_x6_today_ic_test.npy
+  submission: submissions/task1_gru_x6_today_ic.npy

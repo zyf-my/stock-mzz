@@ -1,0 +1,16 @@
+# x6 + include_current_day + stable training (rank target, cosine, accum, head dropout).
+
+include: configs/gru_x6_with_today.yaml
+
+model:
+  target_mode: rank
+  accum_days: 8
+  lr_schedule: cosine
+  head_dropout: 0.1
+  weight_decay: 0.001
+
+paths:
+  checkpoint: checkpoints/gru_x6_today_stable.pt
+  valid_pred: outputs/gru_x6_today_stable_valid.npy
+  test_pred: outputs/gru_x6_today_stable_test.npy
+  submission: submissions/task1_gru_x6_today_stable.npy

@@ -1,0 +1,13 @@
+# x6 + exponential input decay (half-life in window steps).
+# Does not overwrite gru_no_today_recent_n2000_x6 checkpoint.
+
+include: configs/gru_no_today_recent_n2000_x6.yaml
+
+features:
+  input_decay_halflife: 3
+
+paths:
+  checkpoint: checkpoints/gru_x6_input_decay.pt
+  valid_pred: outputs/gru_x6_input_decay_valid.npy
+  test_pred: outputs/gru_x6_input_decay_test.npy
+  submission: submissions/task1_gru_x6_input_decay.npy

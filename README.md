@@ -4,9 +4,11 @@
 
 **先读 [`计划.md`](计划.md) 和 [`experiments.md`](experiments.md)。**
 
-当前最强：本地 valid **0.120542**，平台测试集 **0.125588**（同一文件：x6 + only6-today + next6 GRU，覆盖度门控 w_high=0.6，原行业 MLP 与 6 列 MLP 混合）。官方门槛 0.12 已过。测试分只记结果，不回灌调参。产物不在 git 里：`submissions/task1_fusion_next6_wt_mlp6.npy`。
+当前最强：valid **0.120869**，平台 test **0.125679**（`task1_fusion_x6_today.npy`）。相对上一版（valid 0.120542 / test 0.125588，`task1_fusion_next6_wt_mlp6.npy`）只改一处：**x6 GRU 打开 `include_current_day`**，融合权重与二档门控不变。
 
-不要把 0.117 / 0.120168 的旧融合当主方案。
+复现：先训 `configs/gru_x6_with_today.yaml`，再跑 `scripts/eval_x6_today_fusion.py` → `submissions/task1_fusion_x6_today.npy`。
+
+三档门控（gate3）及输入时间衰减 valid 高但 test 差，已抛弃。测试分只记结果，不回灌调参。
 
 ## 队友接手
 

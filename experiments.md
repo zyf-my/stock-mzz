@@ -2,7 +2,7 @@
 
 每次有效训练追加一条。没有数字的「大概好了」不算完成。对比实验一次只改窗口、特征集合、损失、模型四者之一。
 
-**当前最强：valid 0.120542，平台 test 0.125588**（同一文件 `task1_fusion_next6_wt_mlp6.npy`：x6 + only6-with-today + next6 GRU，覆盖度门控 w_high=0.6，cs_mlp 与 only6-MLP 混合）。官方门槛 0.12 已过。测试分只记结果，不回灌调参。
+**当前最强：valid 0.120869，平台 test 0.125679**，文件 `task1_fusion_x6_today.npy`（上一版 `task1_fusion_next6_wt_mlp6.npy` valid 0.120542 / test 0.125588）。只改 x6 GRU 的 `include_current_day`，二档门控与融合权重不变。gate3 / 输入时间衰减 valid 高 test 差，已抛弃。测试分只记结果，不回灌再搜门控。
 
 ## cs-lgbm-001
 - 日期：2026-08-17
@@ -548,6 +548,202 @@
 - 平台 test mean RankIC：**0.125588**
 - 结论：**过官方门槛 0.12。** test 高于 valid，不像把验证集搜穿。这是试分，不是友安杯整包终稿。
 - 下一步：锁死本文件。不要用测试分海搜超参。剩下做 README / 说明书。
+
+## diag-ceiling-001
+- 日期：2026-08-22
+- 代码/配置：`scripts/diag_ceiling.py`（不训练）
+- 输入特征：本机已有 valid 预测。x6 / only6 / next6 产物缺失
+- 是否看历史：沿用已有模型
+- 模型：日度 oracle（当天选 RankIC 最高的一支）
+- 损失：—
+- valid mean RankIC：本机最强 `fusion_recent_gru_n2000_cov_mlp` 0.117177；全部分支日度 oracle **0.176684**；tree+GRU n2000+MLP+锁定 0.162841
+- 诊断：Q1 锁定 0.166 / Q4 锁定 0.093。Q4 树 0.058、GRU 0.107，二档门控 tau=4546 把 Q3（树 0.125）和 Q4 绑在一起。w_high=0.7 + mlp → 0.1191
+- 结论：**0.14 低于日度 oracle，路由现有分支理论上够。** 不是再叠一个同类 GRU。本机没有 0.1205 产物。
+- 下一步：把 Q4 从门控里拆开，见 fusion-gate3-001
+
+## fusion-gate3-001
+- 日期：2026-08-22
+- 代码/配置：`scripts/eval_regime_gate.py`
+- 输入特征：不重训。GRU=`gru_n2000` 0.0919；树融合 0.1062；cs_mlp 0.0918
+- 是否看历史：沿用已有模型
+- 模型：三档覆盖度 raw 门控。tau_mid=4546 w=0.25；中间档 w=0.4；tau_high=4650 w_high=1.0（该档纯 GRU）；再 rank-blend cs_mlp 0.15
+- 损失：不训练；验收 RankIC
+- valid mean RankIC：**0.122413**（对照二档门控 0.117177）。九格同向都 ≥0.120。分歧×覆盖度最高 0.1212，不如三档覆盖度
+- 诊断：分位 oracle Q1=0.203 / Q2=0.148 / Q3=0.143 / Q4=0.152。分位内会选对模型的话均值约 0.16
+- 耗时 / 硬件：48s，只读 cache
+- 结论：**作为新的本地主融合。** 产物 `submissions/task1_fusion_n2000_gate3.npy`，未覆盖 0.117 文件。243 天上 +0.005 来自同一套 Q4 诊断，不是随机网格。离 0.14 仍约 0.018。
+- 下一步：行业注意力；以及把缺失的 x6/only6 接到这套三档门控上
+
+## cs-attn-001
+- 日期：2026-08-22
+- 代码/配置：`configs/cs_attn.yaml`，`scripts/train_cs_attn.py`
+- 输入特征：与 cs_mlp 相同 21 列行业 z-score + cat_1
+- 是否看历史：窗口 = 0
+- 模型：行业内自注意力 hidden=64、2 heads；残差连接到投影
+- 损失：行业残差 Pearson IC
+- valid mean RankIC：0.092408（对照 cs_mlp 0.091768）；epoch 7 最佳
+- 诊断：与 cs_mlp 日均 Spearman **0.963**；叠到 0.117177 的 n2000 融合不涨（所有权重同分）
+- 耗时 / 硬件：拟合 979s，合计 1140s，CPU
+- 结论：**抛弃。** 注意力几乎学成原来的 MLP，没有新的股票维信号。不覆盖 cs_mlp。
+- 下一步：不要再在同一 21 列行业 z 上换注意力骨干。去补 x6/only6，或做日度路由的时序外预测。
+
+## gru-n2000-x6-retrain-001
+- 日期：2026-08-22
+- 代码/配置：`configs/gru_no_today_recent_n2000_x6.yaml`
+- 输入特征：与 x6-001 相同；本机缺产物，按同一配置重训
+- 是否看历史：窗口 = 10，不含当天；末 800 天；每天 2000 只
+- 模型：同 GRU；epoch 1 最佳后崩掉，早停
+- 损失：MSE
+- valid mean RankIC：0.092888（与 gru-n2000-x6-001 逐位对齐）
+- 结论：**复现成功。** 接到三档门控见下条。
+
+## gru-only6-with-today-retrain-001
+- 日期：2026-08-22
+- 代码/配置：`configs/gru_only6_with_today.yaml`
+- 输入特征：6 列，含当天
+- 是否看历史：窗口 = 10；末 800 天；每天 2000 只
+- 模型：同 GRU；epoch 1 最佳 0.0903
+- 损失：MSE
+- valid mean RankIC：0.090323（与 gru-only6-with-today-001 逐位对齐）
+- 结论：**复现成功。**
+
+## fusion-x6-only6-gate3-001
+- 日期：2026-08-22
+- 代码/配置：`scripts/eval_x6_gate3.py`
+- 输入特征：不重训。0.4×only6-today + 0.6×x6；门控从 gate3-001 原样迁移（tau_high=4650, w_high=1.0）
+- 是否看历史：沿用已有模型
+- 模型：三档覆盖度 + rank-blend cs_mlp 0.15。未重搜门控
+- 损失：—
+- valid mean RankIC：**0.123689**（对照 n2000 gate3 0.122413；单换 x6 为 0.122485）
+- 诊断：GRU 混合单模 0.0957，高于 x6 0.0929 / only6 0.0903
+- 耗时 / 硬件：3.9s
+- 结论：**本地候选。** 产物 `submissions/task1_fusion_x6_only6_gate3.npy`。平台试分见下条。
+- 下一步：已上传，见 platform-probe-002
+
+## platform-probe-002
+- 日期：2026-08-22
+- 代码/配置：`submissions/task1_fusion_x6_only6_gate3.npy`（fusion-x6-only6-gate3-001）
+- 输入特征：与上条相同，未改权重
+- 是否看历史：同锁定配方
+- 模型：不训练；靖戈平台对测试集打分
+- 损失：—
+- valid mean RankIC：0.123689（本地，选模用）
+- 平台 test mean RankIC：**0.117855**
+- 结论：**抛弃。** 低于官方门槛 0.12，也低于 GitHub 主方案 test 0.125588。valid 涨、test 掉，三档门控（tau_high=4650 / w_high=1.0）把 243 天验证集搜过了。未覆盖 GitHub 主文件。
+- 下一步：主方案回到 `task1_fusion_next6_wt_mlp6.npy`。不要用这次测试分再搜覆盖度网格。今日剩余提交不要再传门控变体。
+
+## next6-fusion-repro-001
+- 日期：2026-08-22
+- 代码/配置：`configs/gru_next6_with_today.yaml`、`configs/cs_mlp_only6.yaml`、`scripts/eval_next6_fusion.py`
+- 输入特征：本机缺产物，按 GitHub 锁定配方重训 next6 GRU 与 cs_mlp_only6，再原样融合
+- 是否看历史：与 gru-next6-with-today-001 / cs-mlp-only6-001 相同
+- 模型：不改权重。tau=4546，w_low=0.25，w_high=0.6，next6 0.15，mlp6 0.4，cs_mlp 0.15
+- 损失：—
+- valid mean RankIC：**0.120542**（与 GitHub / platform-probe-001 逐位对齐）
+- 结论：**复现成功。** 产物 `submissions/task1_fusion_next6_wt_mlp6.npy` 已写回本机。这是平台 test 0.125588 的那一版。
+- 下一步：主方案就是这份。改良只叠在这版上面，不要再改已经过线的二档门控。
+
+## gru-rest6-with-today-001
+- 日期：2026-08-22
+- 代码/配置：`configs/gru_rest6_with_today.yaml`，`scripts/scan_unused_cols.py`，`scripts/eval_rest6_on_locked.py`
+- 输入特征：train 末 800 天 |RankIC| 最高的未用列 76, 50, 75, 86, 48, 49（丢掉 RankIC 为 NaN 的 23）
+- 是否看历史：窗口 = 10，含当天；末 800 天；每天 2000 只。与 next6 配方对齐
+- 模型：同 GRU；epoch 4 最佳 0.055
+- 损失：MSE
+- valid mean RankIC：单支 0.054979
+- 诊断：未用列最强 |RankIC| 仅 0.038，弱于 next6。raw 叠到锁定 0.120542 上 0.10/0.15/0.25 都不涨；rank 叠掉到 0.119–0.114
+- 结论：**抛弃。** 未覆盖 `task1_fusion_next6_wt_mlp6.npy`。未用 6 列 GRU 这条线挖干了。
+- 下一步：不要再开第四、第五档弱列 GRU。锁定配方上若继续，只做训练期时序外的日度路由，且不能在 valid 上搜门控。
+
+## oof-day-router-001
+- 日期：2026-08-22
+- 代码/配置：`scripts/run_oof_router.py`、`scripts/clean_redundant.py`
+- 输入特征：先清失败产物（gate3 / rest6 / cs_attn / 旧 GRU 变体等 110 个文件）。路由特征 = `[1, cov_z, dis_z, cov*dis]`，目标 = OOF 上按日最优 GRU/树权重（网格 `{0,0.15,0.25,0.4,0.6,0.85,1}`）。未在 valid 上拟合。
+- 是否看历史：train 2432 天切成 prefix [0,1232) 训树、OOF [1232,1632) 拟路由、GRU recency [1632,2432)。冻结 x6/only6/next6 在 OOF 上做时序外预测。
+- 模型：OOF 上 lstsq 拟合日度 w；推理时用锁定全模型分数 + 同样 mlp6 mix + rank 0.15。未覆盖 `task1_fusion_next6_wt_mlp6.npy`。
+- 损失：拟合 oracle w，不是直接最大化 RankIC
+- valid mean RankIC：**0.104427**（对照锁定 0.120542，Δ=−0.016115）；mean_w=0.714；min=−0.2836；负 RankIC 日 57
+- OOF 诊断：GRU ens 0.111057；prefix 树 0.154508；oracle-w 0.176345；router 0.152272（略差于纯树）。beta≈`[0.332, 0.059, 0.031, 0.038]`，几乎常权重。
+- 耗时 / 硬件：合计 302s
+- 结论：**抛弃。** 日度 oracle 仍有约 0.176 的头，但 coverage/disagree 线性路由学不出可迁移的开关：OOF 窗口树更强，valid 覆盖度系统性更高，冻结的 z-score 把 w 拧偏。没写出新主提交。
+- 下一步：不要再在 valid 上搜覆盖度，也不要再拟合这种 4 维线性日度 w。若继续冲 0.13，下一条是 walk-forward 直接堆各支分数（对 RankIC 拟合，而不是拟合 oracle w）。主方案仍是 `task1_fusion_next6_wt_mlp6.npy`。
+
+## oof-rankic-stack-001
+- 日期：2026-08-22
+- 代码/配置：`scripts/run_oof_stack.py`
+- 输入特征：冻结 x6/only6/next6 GRU；前缀重训 hist_lgbm+baseline（0.7）和 cs_mlp+mlp6（0.4）。OOF 400 天在 GRU recency 之前。单纯形网格步长 0.05，raw / rank 两空间，目标 mean RankIC。未看 valid。
+- 是否看历史：与 oof-day-router-001 同一窗口：prefix [0,1232)，oof [1232,1632)，gru_fit [1632,2432)
+- 模型：全局三支固定权重，替代覆盖度门控。未覆盖 `task1_fusion_next6_wt_mlp6.npy`
+- 损失：OOF 上直接最大化 RankIC
+- valid mean RankIC：**0.107624**（对照锁定 0.120542，Δ=−0.012918）；min=−0.1868；负 RankIC 日 37
+- OOF 诊断：GRU ens 0.111057；树 0.154508；MLP ens 0.104861。最优 stack 0.154646，权重 **(gru 0.05, tree 0.95, mlp 0.00)**，rank 空间。几乎等于纯树。
+- 耗时 / 硬件：合计 381s；复用了 router 的 GRU/树 OOF
+- 结论：**抛弃。** 这 400 天 GRU 是时序外、树更强，定权学成 95% 树；valid 覆盖度更高、锁定配方需要 GRU。和日度路由同一制度错位，只是从「按天开关」换成「全局偏树」。没写出新提交。
+- 下一步：不要再在「GRU recency 之前」这块 OOF 上拟合融合权重。主方案仍是 `task1_fusion_next6_wt_mlp6.npy`。刷分停在这里；精力转说明书 / 可复现入口。
+
+## gru-x6-stable-001
+- 日期：2026-08-22
+- 代码/配置：`configs/gru_x6_stable.yaml`，`scripts/eval_x6_stable_fusion.py`；`src/models/gru_ts.py` 增加 accum / cosine / rank 标签 / head dropout（默认关，旧 GRU 行为不变）
+- 输入特征：与锁定 x6 相同 27 列、L=10、不含当天、末 800 天、每天 2000 只
+- 是否看历史：窗口 = 10，`[t-L, t)`
+- 模型：同 1 层 GRU hidden=64。只改训练：accum=8、cosine lr、MSE on 截面名次 z-score、head_dropout=0.1、weight_decay 1e-4→1e-3
+- 损失：MSE（标签是当天截面名次再标准化）
+- valid mean RankIC：单支 **0.082783**（对照锁定 x6 0.092888）；锁死融合替换 x6 后 **0.113657**（对照 0.120542，Δ=−0.006885）
+- 训练曲线：epoch1 0.0828 → epoch2 0.033 → epoch3 0.082 → epoch4 0.056，早停。最佳仍是第 1 轮。
+- 耗时 / 硬件：拟合 235s，合计约 412s
+- 结论：**抛弃。** 第 2 轮照样崩，cosine/累积/名次标签没有把 GRU 训过 epoch 1；第 1 轮还比原 x6 弱。未覆盖 x6 checkpoint 和主提交。
+- 下一步：不要再把多种训练技巧一次堆进 GRU。原 x6「第 1 轮快照」就是这套数据上更强的拟合。主方案仍是 `task1_fusion_next6_wt_mlp6.npy`。
+
+## hist-lgbm-rankic-001
+- 日期：2026-08-23
+- 代码/配置：`configs/hist_lgbm_rankic.yaml`，`src/models/lambdarank_ic.py`，`scripts/eval_hist_rankic_fusion.py`
+- 输入特征：与 hist_lgbm-002 完全相同；只把 MSE 换成 LambdaRankIC（Lin et al. 2026 论文 Algorithm 1）
+- 是否看 history：窗口 = 10，source=cs_zscore
+- 模型：LightGBM 250 轮，每天 512 随机 pair，向量化梯度
+- 损失：直接优化 Rank IC 的 lambda 梯度（不是 NDCG LambdaRank）
+- valid mean RankIC：单支 **-0.100266**（对照 MSE hist 0.104192）；树融合 0.7 blend **-0.098234**；锁死 next6 融合 **-0.075366**
+- 耗时 / 硬件：fit 226s，合计 410s。首轮实现无进度日志，2432 组×2048 pair×400 轮在 Python 里跑了 15+ 分钟无输出，后改为 512 pair + 250 轮 + 每 25 轮日志
+- 结论：**抛弃。** 比 hist-rank-001（NDCG LambdaRank -0.021）更差，分数反号。可能是 LightGBM 自定义目标符号/实现细节与 XGBoost 论文不一致，或 pair 采样太稀。未覆盖 hist_lgbm 产物。
+- 下一步：若要再试 RankIC 损失，应对照论文 XGBoost 实现核对梯度符号；或改用 GRU 截面 Margin/BPR list 训练。主方案仍是 `task1_fusion_next6_wt_mlp6.npy`。
+
+## regime-bucket-train-001
+- 日期：2026-08-23
+- 代码/配置：`scripts/eval_regime_bucket_train.py`（方案 B）
+- 输入特征：覆盖度四分位边界只在 train 估（全 train + 末 800 天两套）；每桶 GRU/树权重在 train 末 800 天上网格搜索。**valid 未参与拟合。**
+- 是否看 history：沿用锁定 next6 融合 + mlp6
+- 模型：4 档固定 w_q × GRU + (1-w_q) × 树，再 rank-blend mlp 0.15
+- 损失：—
+- valid mean RankIC：**0.108836**（对照锁定 0.120542，Δ=−0.012）；bucket gate 0.106（≈纯树 0.106）
+- 诊断：train 末 800 天 in-sample 树 ~0.22、GRU ~0.08，四档全学到 **w=0（纯树）**；valid 覆盖度全落在最高档（4242+），用 w=0 等于放弃 GRU。全 train 边界时 Q1/Q2 在 fit 窗无样本。修复溢出后仍不如二档门控 w_high=0.6。
+- 耗时 / 硬件：train 预测 257s，eval 14s（`--skip-train-pred`）
+- 结论：**抛弃。** train 内样本选权重系统性偏树，和 valid 制度相反；与 OOF stacking 失败同一根因。未覆盖主提交。
+- 下一步：方案 B 在此数据上到头。冲 +0.02 只剩方案 A（多折 walk-forward 元学习），成本高、valid 仍可能骗人。
+
+## fusion-x6-today-001
+- 日期：2026-08-23
+- 代码/配置：`configs/gru_x6_with_today.yaml`，`scripts/eval_x6_today_fusion.py`
+- 输入特征：相对锁定 x6 **只打开 `include_current_day`**（27 列 CS z-score 窗口含当天）；only6/next6/mlp/树支不重训
+- 是否看 history：L=10，含当天
+- 模型：GRU hidden=64，MSE，末 800 天 n2000；融合仍为 0.15×next6 + 0.85×(0.4×only6 + 0.6×x6)，二档门控 tau=4546 w=0.25/0.6，mlp6 0.4 + rank 0.15
+- 损失：MSE 回归 y1
+- valid mean RankIC：**0.120869**（对照上一主方案 0.120542，Δ=+0.000327）
+- 平台 test mean RankIC：**0.125679**（对照 0.125588，Δ=+0.000091）
+- 耗时 / 硬件：x6 训练 ~323s（CPU）；融合 eval 数秒
+- 结论：**当前主提交。** 产物 `submissions/task1_fusion_x6_today.npy`。未覆盖 `task1_fusion_next6_wt_mlp6.npy`。
+- 下一步：gate2 上 valid 仍低于内部 bar 0.121542，但 valid/test 双超上一版，先锁定。勿用 gate3（test 覆盖度全在高档 → 纯 GRU，test 0.120477）。
+
+## gru-input-decay-001
+- 日期：2026-08-23
+- 代码/配置：`src/models/gru_ts.py` 的 `input_decay_halflife`，`configs/gru_only6_input_decay.yaml` / `gru_x6_input_decay.yaml`
+- 输入特征：窗口内指数衰减（半衰期 3）
+- valid / 平台 test：only6 融合 valid 0.120446，test **0.125548**；x6 融合 valid 0.120408，test **0.124911**
+- 结论：**抛弃。** 相对上一主方案 test 均略低。
+
+## fusion-x6-today-gate3-001
+- 日期：2026-08-23
+- 代码/配置：`scripts/eval_x6_today_gate3_fusion.py`
+- valid mean RankIC：**0.124767**；平台 test mean RankIC：**0.120477**
+- 结论：**抛弃。** valid 高因 valid 覆盖度分三档；test 442 天全覆盖 ≥4650，gate3 高档 w=1.0 变纯 GRU，树不进融合。与 fusion-x6-only6-gate3 同类失败。
 
 模板：
 

@@ -10,6 +10,8 @@ import numpy as np
 import torch
 from torch import nn
 
+from scipy.stats import rankdata
+
 from src.dataset import gather_windows, precompute_cs_cols, precompute_ind_cols
 
 
@@ -22,6 +24,7 @@ class GRUNet(nn.Module):
         dropout: float,
         cat_cardinalities: list[int] | None = None,
         cat_embed_dim: int = 8,
+        head_dropout: float = 0.0,
     ):
         super().__init__()
         self.rnn = nn.GRU(
@@ -35,10 +38,11 @@ class GRUNet(nn.Module):
         self.embeds = nn.ModuleList(nn.Embedding(c, cat_embed_dim) for c in cards) if cards else None
         in_fc = hidden + (len(cards) * cat_embed_dim if cards else 0)
         self.fc = nn.Linear(in_fc, 1)
+        self.head_drop = nn.Dropout(head_dropout)
 
     def forward(self, x: torch.Tensor, cats: torch.Tensor | None = None) -> torch.Tensor:
         out, _ = self.rnn(x)
-        h = out[:, -1, :]
+        h = self.head_drop(out[:, -1, :])
         if self.embeds is not None:
             if cats is None:
                 raise ValueError("GRUNet was built with category embeddings but cats is None")
@@ -69,9 +73,21 @@ class GRUModel:
             raise ValueError("GRU needs features.num_indices")
         self.length = int(cfg.get("length", 10))
         self.include_current = bool(cfg.get("include_current_day", True))
+        hl = cfg.get("input_decay_halflife")
+        self.input_decay_halflife = float(hl) if hl is not None else None
+        self._input_decay_weights: np.ndarray | None = None
+        if self.input_decay_halflife is not None and self.input_decay_halflife > 0:
+            ages = np.arange(self.length - 1, -1, -1, dtype=np.float32)
+            self._input_decay_weights = np.power(
+                0.5, ages / max(self.input_decay_halflife, 1e-3)
+            ).astype(np.float32)
         self.hidden_size = int(cfg.get("hidden_size", 64))
         self.num_layers = int(cfg.get("num_layers", 1))
         self.dropout = float(cfg.get("dropout", 0.1))
+        self.head_dropout = float(cfg.get("head_dropout", 0.0))
+        self.target_mode = str(cfg.get("target_mode", "y1")).lower()
+        self.accum_days = max(1, int(cfg.get("accum_days", 1)))
+        self.lr_schedule = str(cfg.get("lr_schedule") or "").lower()
         self.clip = cfg.get("clip", 5.0)
         self.max_train_stocks = cfg.get("max_train_stocks_per_day")
         self.min_train_stocks = int(cfg.get("min_train_stocks", 8))
@@ -123,7 +139,21 @@ class GRUModel:
             dropout,
             cat_cardinalities=self.cat_cardinalities,
             cat_embed_dim=self.cat_embed_dim,
+            head_dropout=self.head_dropout,
         ).to(self.device)
+
+    def _day_target(self, data: dict[str, Any], t: int, idx: np.ndarray) -> np.ndarray:
+        y = np.asarray(data["y1"][t], dtype=np.float32)
+        if self.target_mode not in {"rank", "cs_rank"}:
+            return y[idx]
+        labeled = np.asarray(data["mask_y"][t], dtype=bool) & np.isfinite(y)
+        out = np.zeros_like(y)
+        n = int(labeled.sum())
+        if n >= 3:
+            r = rankdata(y[labeled], method="average").astype(np.float32)
+            r = (r - r.mean()) / (float(r.std()) + 1e-8)
+            out[labeled] = r
+        return out[idx]
 
     def _cats_tensor(self, global_t: int, idx: np.ndarray) -> torch.Tensor | None:
         if self.cat_sel is None:
@@ -131,10 +161,16 @@ class GRUModel:
         cats = np.ascontiguousarray(self.cat_sel[int(global_t), idx])
         return torch.from_numpy(cats.astype(np.int64, copy=False)).to(self.device)
 
+    def _apply_input_decay(self, x: np.ndarray) -> np.ndarray:
+        if self._input_decay_weights is None:
+            return x
+        w = self._input_decay_weights.reshape(1, self.length, 1)
+        return np.ascontiguousarray(x * w)
+
     def _forward(self, x: np.ndarray, global_t: int, idx: np.ndarray) -> torch.Tensor:
         if self.net is None:
             raise RuntimeError("GRU is not fitted")
-        xb = torch.from_numpy(np.ascontiguousarray(x)).to(self.device)
+        xb = torch.from_numpy(self._apply_input_decay(x)).to(self.device)
         return self.net(xb, self._cats_tensor(global_t, idx))
 
     def _loss(self, pred: torch.Tensor, yb: torch.Tensor) -> torch.Tensor:
@@ -164,6 +200,11 @@ class GRUModel:
         epochs = int(self.cfg.get("max_epochs", 8))
         patience = int(self.cfg.get("patience", 3))
         opt = torch.optim.Adam(self.net.parameters(), lr=lr, weight_decay=decay)
+        scheduler = None
+        if self.lr_schedule in {"cosine", "cosine_epoch"}:
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                opt, T_max=max(epochs, 1), eta_min=max(lr * 0.05, 1e-6)
+            )
         rng = np.random.default_rng(self.seed)
         best_ic = -1e9
         best_state: dict[str, torch.Tensor] | None = None
@@ -173,14 +214,25 @@ class GRUModel:
         print(
             f"gru params={n_params} hidden={self.hidden_size} L={self.length} "
             f"include_t={self.include_current} source={self.source} "
-            f"loss={self.loss_name} cats={self.cat_indices or '-'}"
+            f"loss={self.loss_name} target={self.target_mode} accum={self.accum_days} "
+            f"lr_sched={self.lr_schedule or 'const'} head_drop={self.head_dropout} "
+            f"input_decay_hl={self.input_decay_halflife or '-'} "
+            f"wd={decay} cats={self.cat_indices or '-'}"
         )
 
         days = list(range(int(train_start), int(train_end)))
+
+        def _opt_step() -> None:
+            nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
+            opt.step()
+            opt.zero_grad(set_to_none=True)
+
         for epoch in range(epochs):
             self.net.train()
             rng.shuffle(days)
             losses: list[float] = []
+            accum = 0
+            opt.zero_grad(set_to_none=True)
             for i, t in enumerate(days):
                 mask_y = np.asarray(data["mask_y"][t], dtype=bool)
                 idx = np.flatnonzero(mask_y)
@@ -196,21 +248,27 @@ class GRUModel:
                     self.length,
                     include_current=self.include_current,
                 )
-                y = np.asarray(data["y1"][t][idx], dtype=np.float32)
-                yb = torch.from_numpy(y).to(self.device)
+                y = self._day_target(data, t, idx)
+                yb = torch.from_numpy(np.ascontiguousarray(y)).to(self.device)
                 pred = self._forward(x, t, idx)
-                loss = self._loss(pred, yb)
-                opt.zero_grad(set_to_none=True)
+                loss = self._loss(pred, yb) / float(self.accum_days)
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
-                opt.step()
-                losses.append(float(loss.item()))
+                accum += 1
+                losses.append(float(loss.item()) * float(self.accum_days))
+                if accum >= self.accum_days:
+                    _opt_step()
+                    accum = 0
                 if self.log_every and (i + 1) % self.log_every == 0:
                     print(
                         f"  epoch {epoch + 1} day {i + 1}/{len(days)} "
-                        f"loss={float(np.mean(losses[-self.log_every:])):.5f}",
+                        f"loss={float(np.mean(losses[-self.log_every:])):.5f} "
+                        f"lr={float(opt.param_groups[0]['lr']):.2e}",
                         flush=True,
                     )
+            if accum > 0:
+                _opt_step()
+            if scheduler is not None:
+                scheduler.step()
             valid_ic = None
             if valid is not None:
                 pred_v = self.predict_panel(valid, data)
@@ -286,9 +344,14 @@ class GRUModel:
             "cols": self.cols,
             "length": self.length,
             "include_current": self.include_current,
+            "input_decay_halflife": self.input_decay_halflife,
             "hidden_size": self.hidden_size,
             "num_layers": self.num_layers,
             "dropout": self.dropout,
+            "head_dropout": self.head_dropout,
+            "target_mode": self.target_mode,
+            "accum_days": self.accum_days,
+            "lr_schedule": self.lr_schedule,
             "clip": self.clip,
             "cat_indices": self.cat_indices,
             "cat_embed_dim": self.cat_embed_dim,
@@ -312,9 +375,21 @@ class GRUModel:
             self.cols = [int(i) for i in meta.get("cols", self.cols)]
             self.length = int(meta.get("length", self.length))
             self.include_current = bool(meta.get("include_current", self.include_current))
+            hl = meta.get("input_decay_halflife", self.cfg.get("input_decay_halflife"))
+            self.input_decay_halflife = float(hl) if hl is not None else None
+            self._input_decay_weights = None
+            if self.input_decay_halflife is not None and self.input_decay_halflife > 0:
+                ages = np.arange(self.length - 1, -1, -1, dtype=np.float32)
+                self._input_decay_weights = np.power(
+                    0.5, ages / max(self.input_decay_halflife, 1e-3)
+                ).astype(np.float32)
             self.hidden_size = int(meta.get("hidden_size", self.hidden_size))
             self.num_layers = int(meta.get("num_layers", self.num_layers))
             self.dropout = float(meta.get("dropout", self.dropout))
+            self.head_dropout = float(meta.get("head_dropout", self.cfg.get("head_dropout", 0.0)))
+            self.target_mode = str(meta.get("target_mode", self.cfg.get("target_mode", "y1"))).lower()
+            self.accum_days = max(1, int(meta.get("accum_days", self.cfg.get("accum_days", 1))))
+            self.lr_schedule = str(meta.get("lr_schedule", self.cfg.get("lr_schedule") or "")).lower()
             self.clip = meta.get("clip", self.clip)
             self.cat_indices = [int(i) for i in meta.get("cat_indices", self.cfg.get("cat_indices") or [])]
             self.cat_embed_dim = int(meta.get("cat_embed_dim", self.cfg.get("cat_embed_dim", 8)))

@@ -62,7 +62,10 @@ def main() -> None:
         f"source={feat.get('source', 'cs_zscore')} "
         f"cols={len(feat.get('num_indices') or [])} hidden={model_cfg.get('hidden_size')} "
         f"max_train_stocks={feat.get('max_train_stocks_per_day')} "
-        f"loss={model_cfg.get('loss', 'mse')} cats={feat.get('cat_indices') or '-'}"
+        f"loss={model_cfg.get('loss', 'mse')} target={model_cfg.get('target_mode', 'y1')} "
+        f"accum={model_cfg.get('accum_days', 1)} lr_sched={model_cfg.get('lr_schedule') or 'const'} "
+        f"input_decay_hl={feat.get('input_decay_halflife') or '-'} "
+        f"cats={feat.get('cat_indices') or '-'}"
     )
 
     data_path = resolve_data_path(cfg, args.data)

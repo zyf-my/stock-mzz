@@ -1,0 +1,13 @@
+# only6 + include_current_day + exponential input decay (half-life in window steps).
+# Does not overwrite only6_with_today / x6 / next6 checkpoints.
+
+include: configs/gru_only6_with_today.yaml
+
+features:
+  input_decay_halflife: 3
+
+paths:
+  checkpoint: checkpoints/gru_only6_input_decay.pt
+  valid_pred: outputs/gru_only6_input_decay_valid.npy
+  test_pred: outputs/gru_only6_input_decay_test.npy
+  submission: submissions/task1_gru_only6_input_decay.npy

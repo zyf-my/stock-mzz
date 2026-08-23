@@ -1,0 +1,12 @@
+# x6 + include_current_day。窗口含当天 CS z-score；不覆盖 gru_no_today_recent_n2000_x6。
+
+include: configs/gru_no_today_recent_n2000_x6.yaml
+
+features:
+  include_current_day: true
+
+paths:
+  checkpoint: checkpoints/gru_x6_with_today.pt
+  valid_pred: outputs/gru_x6_with_today_valid.npy
+  test_pred: outputs/gru_x6_with_today_test.npy
+  submission: submissions/task1_gru_x6_with_today.npy
