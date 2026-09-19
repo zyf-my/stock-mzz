@@ -1,0 +1,11 @@
+# x6 GRU seed=44 袋装支
+
+include: configs/task2/gru_x6_with_today_s43.yaml
+
+seed: 44
+
+paths:
+  checkpoint: checkpoints/task2/gru_x6_with_today_s44.pt
+  valid_pred: outputs/task2/gru_x6_with_today_s44_valid.npy
+  test_pred: outputs/task2/gru_x6_with_today_s44_test.npy
+  submission: submissions/task2_gru_x6_with_today_s44.npy

@@ -1,0 +1,10 @@
+include: configs/cs_mlp.yaml
+
+train:
+  label_key: y2
+
+paths:
+  checkpoint: checkpoints/task2/cs_mlp.pt
+  valid_pred: outputs/task2/cs_mlp_valid.npy
+  test_pred: outputs/task2/cs_mlp_test.npy
+  submission: submissions/task2_cs_mlp.npy

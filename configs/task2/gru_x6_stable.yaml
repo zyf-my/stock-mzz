@@ -1,0 +1,15 @@
+# y2 x6 stable GRU：rank MSE + cosine + accum8 + include_today
+
+include: configs/gru_x6_stable.yaml
+
+train:
+  label_key: y2
+
+features:
+  include_current_day: true
+
+paths:
+  checkpoint: checkpoints/task2/gru_x6_stable.pt
+  valid_pred: outputs/task2/gru_x6_stable_valid.npy
+  test_pred: outputs/task2/gru_x6_stable_test.npy
+  submission: submissions/task2_gru_x6_stable.npy

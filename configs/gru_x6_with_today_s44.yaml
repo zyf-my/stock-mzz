@@ -1,0 +1,11 @@
+# 相对 x6_today：只改随机种子。用于袋装，不覆盖 seed 42 产物。
+
+include: configs/gru_x6_with_today.yaml
+
+seed: 44
+
+paths:
+  checkpoint: checkpoints/gru_x6_with_today_s44.pt
+  valid_pred: outputs/gru_x6_with_today_s44_valid.npy
+  test_pred: outputs/gru_x6_with_today_s44_test.npy
+  submission: submissions/task1_gru_x6_with_today_s44.npy

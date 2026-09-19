@@ -1,0 +1,22 @@
+# y2 next6 高覆盖 GRU：rank MSE + cosine + 末 600 天
+
+include: configs/task2/gru_next6_with_today.yaml
+
+model:
+  target_mode: rank
+  accum_days: 8
+  lr_schedule: cosine
+  head_dropout: 0.1
+  weight_decay: 0.001
+
+features:
+  recent_days: 600
+
+train:
+  recent_days: 600
+
+paths:
+  checkpoint: checkpoints/task2/gru_next6_hicov.pt
+  valid_pred: outputs/task2/gru_next6_hicov_valid.npy
+  test_pred: outputs/task2/gru_next6_hicov_test.npy
+  submission: submissions/task2_gru_next6_hicov.npy

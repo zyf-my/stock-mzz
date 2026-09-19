@@ -35,6 +35,62 @@ def coverage_gate_blend(
     return pred
 
 
+def coverage_soft_gate_blend(
+    temporal: np.ndarray,
+    cross_section: np.ndarray,
+    mask_x: np.ndarray,
+    tau_lo: float,
+    tau_hi: float,
+    weight_low: float,
+    weight_high: float,
+    space: str = "raw",
+    extrapolate: bool = True,
+) -> np.ndarray:
+    """Linear coverage ramp between tau_lo→w_lo and tau_hi→w_hi; optional linear extrapolation above tau_hi."""
+    if space == "rank":
+        temporal = panel_cs_rank(temporal, mask_x)
+        cross_section = panel_cs_rank(cross_section, mask_x)
+    elif space != "raw":
+        raise ValueError(f"unknown coverage space {space!r}")
+    n_x = np.asarray(mask_x).sum(axis=1).astype(np.float64)
+    lo, hi = float(tau_lo), float(tau_hi)
+    span = max(hi - lo, 1.0)
+    t = (n_x - lo) / span
+    if not extrapolate:
+        t = np.clip(t, 0.0, 1.0)
+    w = float(weight_low) + t * (float(weight_high) - float(weight_low))
+    pred = np.empty_like(temporal, dtype=np.float32)
+    for day in range(temporal.shape[0]):
+        wd = float(w[day])
+        pred[day] = linear_blend(temporal[day], cross_section[day], wd)
+    return pred
+
+
+def dual_regime_blend(
+    base: np.ndarray,
+    expert: np.ndarray,
+    mask_x: np.ndarray,
+    cov_lo: float,
+    cov_hi: float,
+    *,
+    extrapolate: bool = True,
+    w_cap: float = 1.5,
+) -> np.ndarray:
+    """Per-day linear ramp: cov_lo→base, cov_hi→expert; optional extrapolation above cov_hi."""
+    n_x = np.asarray(mask_x).sum(axis=1).astype(np.float64)
+    span = max(float(cov_hi) - float(cov_lo), 1.0)
+    w = (n_x - float(cov_lo)) / span
+    if not extrapolate:
+        w = np.clip(w, 0.0, 1.0)
+    else:
+        w = np.clip(w, 0.0, float(w_cap))
+    out = np.empty_like(base, dtype=np.float32)
+    for day in range(base.shape[0]):
+        wd = float(w[day])
+        out[day] = ((1.0 - wd) * base[day] + wd * expert[day]).astype(np.float32)
+    return out
+
+
 def linear_blend(temporal: np.ndarray, cross_section: np.ndarray, weight: float) -> np.ndarray:
     """weight 是时序支的权重，0 表示纯截面，1 表示纯时序。"""
     if temporal.shape != cross_section.shape:
@@ -51,6 +107,26 @@ def panel_cs_rank(pred: np.ndarray, mask: np.ndarray) -> np.ndarray:
         if int(m.sum()) < 2:
             continue
         out[t, m] = rankdata(pred[t, m], method="average").astype(np.float32)
+    return out
+
+
+def shrink_to_day_mean(pred: np.ndarray, mask: np.ndarray, strength: np.ndarray | float) -> np.ndarray:
+    """score = (1-s) * pred + s * same-day mean. s=0 keeps pred; s=1 is constant (RankIC 0)."""
+    out = np.array(pred, dtype=np.float32, copy=True)
+    if np.isscalar(strength):
+        s_day = np.full(pred.shape[0], float(strength), dtype=np.float64)
+    else:
+        s_day = np.asarray(strength, dtype=np.float64)
+        if s_day.shape[0] != pred.shape[0]:
+            raise ValueError("strength length must match days")
+    s_day = np.clip(s_day, 0.0, 1.0)
+    for t in range(pred.shape[0]):
+        m = np.asarray(mask[t], dtype=bool)
+        if int(m.sum()) < 2:
+            continue
+        mu = float(out[t, m].mean())
+        st = float(s_day[t])
+        out[t, m] = ((1.0 - st) * out[t, m] + st * mu).astype(np.float32)
     return out
 
 

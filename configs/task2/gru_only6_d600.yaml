@@ -1,0 +1,16 @@
+# 相对 task2 only6：训练窗口 800→600 天（更靠近 valid）。
+# 不覆盖 gru_only6_with_today / 主融合。
+
+include: configs/task2/gru_only6_with_today.yaml
+
+features:
+  recent_days: 600
+
+train:
+  recent_days: 600
+
+paths:
+  checkpoint: checkpoints/task2/gru_only6_d600.pt
+  valid_pred: outputs/task2/gru_only6_d600_valid.npy
+  test_pred: outputs/task2/gru_only6_d600_test.npy
+  submission: submissions/task2_gru_only6_d600.npy

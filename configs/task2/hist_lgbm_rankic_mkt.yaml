@@ -1,0 +1,16 @@
+# y2 rankic + mkt_rel 市场状态（外推特征 + RankIC 损失）
+
+include: configs/task2/hist_lgbm_mkt_rel.yaml
+
+model:
+  params:
+    objective: lambdarank_ic
+    max_pair_samples: 512
+    n_estimators: 300
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_rankic_mkt.txt
+  valid_pred: outputs/task2/hist_lgbm_rankic_mkt_valid.npy
+  test_pred: outputs/task2/hist_lgbm_rankic_mkt_test.npy
+  importance: outputs/task2/hist_lgbm_rankic_mkt_importance.csv
+  submission: submissions/task2_hist_lgbm_rankic_mkt.npy

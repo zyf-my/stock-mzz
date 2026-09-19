@@ -1,0 +1,13 @@
+# y2：hist 全量训练 + 覆盖度线性样本权重（高覆盖日权重大，外推 test）
+
+include: configs/hist_lgbm_covw.yaml
+
+train:
+  label_key: y2
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_covw.txt
+  valid_pred: outputs/task2/hist_lgbm_covw_valid.npy
+  test_pred: outputs/task2/hist_lgbm_covw_test.npy
+  importance: outputs/task2/hist_lgbm_covw_importance.csv
+  submission: submissions/task2_hist_lgbm_covw.npy

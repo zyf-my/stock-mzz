@@ -1,0 +1,19 @@
+# y2 外推 hist：mkt_rel + 覆盖度加权 + LambdaRankIC 直接优化排序
+
+include: configs/task2/hist_lgbm_mkt_rel.yaml
+
+train:
+  sample_weight: coverage_linear
+
+model:
+  params:
+    objective: lambdarank_ic
+    max_pair_samples: 512
+    n_estimators: 300
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_extrap.txt
+  valid_pred: outputs/task2/hist_lgbm_extrap_valid.npy
+  test_pred: outputs/task2/hist_lgbm_extrap_test.npy
+  importance: outputs/task2/hist_lgbm_extrap_importance.csv
+  submission: submissions/task2_hist_lgbm_extrap.npy

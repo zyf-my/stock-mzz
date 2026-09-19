@@ -1,0 +1,10 @@
+include: configs/gru_next6_with_today.yaml
+
+train:
+  label_key: y2
+
+paths:
+  checkpoint: checkpoints/task2/gru_next6_with_today.pt
+  valid_pred: outputs/task2/gru_next6_with_today_valid.npy
+  test_pred: outputs/task2/gru_next6_with_today_test.npy
+  submission: submissions/task2_gru_next6_with_today.npy

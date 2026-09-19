@@ -1,0 +1,12 @@
+# y2 rankic 多 seed（seed=43）
+
+include: configs/task2/hist_lgbm_rankic.yaml
+
+seed: 43
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_rankic_s43.txt
+  valid_pred: outputs/task2/hist_lgbm_rankic_s43_valid.npy
+  test_pred: outputs/task2/hist_lgbm_rankic_s43_test.npy
+  importance: outputs/task2/hist_lgbm_rankic_s43_importance.csv
+  submission: submissions/task2_hist_lgbm_rankic_s43.npy

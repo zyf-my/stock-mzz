@@ -1,0 +1,15 @@
+# 相对锁定 alpha-x：只打开 cat_5（约 4094 档，疑似股票 ID）。
+# 历史列、DoubleEnsemble、全 train 不变。不覆盖主融合。
+
+include: configs/hist_lgbm_alpha_x.yaml
+
+features:
+  cat_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  use_stock_id_cat: true
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_alpha_x_cat5.txt
+  valid_pred: outputs/hist_lgbm_alpha_x_cat5_valid.npy
+  test_pred: outputs/hist_lgbm_alpha_x_cat5_test.npy
+  importance: outputs/hist_lgbm_alpha_x_cat5_importance.csv
+  submission: submissions/task1_hist_lgbm_alpha_x_cat5.npy

@@ -1,0 +1,15 @@
+# y2 hist 高覆盖微调：从全量 hist 暖启动，只在 cov>=4000 的 ~110 天上再训 80 轮
+
+include: configs/task2/hist_lgbm.yaml
+
+train:
+  min_day_coverage: 4000
+  init_checkpoint: checkpoints/task2/hist_lgbm.txt
+  finetune_rounds: 80
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_cov4000_finetune.txt
+  valid_pred: outputs/task2/hist_lgbm_cov4000_finetune_valid.npy
+  test_pred: outputs/task2/hist_lgbm_cov4000_finetune_test.npy
+  importance: outputs/task2/hist_lgbm_cov4000_finetune_importance.csv
+  submission: submissions/task2_hist_lgbm_cov4000_finetune.npy

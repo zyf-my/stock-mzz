@@ -1,0 +1,13 @@
+# 相对 task2 only6：只把 66 换成 y2 新进 Top 15 的 55。其它超参、含当天、末 800 天 n2000 不变。
+# 不覆盖 outputs/task2/gru_only6_with_today_*。
+
+include: configs/task2/gru_only6_with_today.yaml
+
+features:
+  num_indices: [42, 58, 55, 69, 73, 74]
+
+paths:
+  checkpoint: checkpoints/task2/gru_only6_y2cols.pt
+  valid_pred: outputs/task2/gru_only6_y2cols_valid.npy
+  test_pred: outputs/task2/gru_only6_y2cols_test.npy
+  submission: submissions/task2_gru_only6_y2cols.npy

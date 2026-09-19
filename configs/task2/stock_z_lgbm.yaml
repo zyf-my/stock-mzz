@@ -1,0 +1,21 @@
+# 课题 2 新轴：股票相对自己过去 20 日的 z-score。不用当天截面/行业 z。
+# 不覆盖 baseline / rank-gate 主文件。
+
+include: configs/task2/baseline.yaml
+
+features:
+  include_raw: false
+  cs_zscore: false
+  industry_zscore: false
+  stock_zscore:
+    enabled: true
+    length: 20
+    clip: 5.0
+    num_indices: [8, 40, 7, 42, 11, 57, 41, 58, 90, 55, 68, 39, 69, 74, 73, 38, 43, 72, 66, 87, 50]
+
+paths:
+  checkpoint: checkpoints/task2/stock_z_lgbm.txt
+  valid_pred: outputs/task2/stock_z_lgbm_valid.npy
+  test_pred: outputs/task2/stock_z_lgbm_test.npy
+  importance: outputs/task2/stock_z_lgbm_importance.csv
+  submission: submissions/task2_stock_z_lgbm.npy

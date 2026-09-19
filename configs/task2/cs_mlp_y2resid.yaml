@@ -1,0 +1,26 @@
+# y2 树残差 MLP：标签 = y2 对 hist@200 OLS 残差（train 上定义，无 valid 泄漏）
+# 类比 y1 hard_resid 思路，但 y2 全样本、hist@200、更小模型
+
+include: configs/task2/cs_mlp.yaml
+
+features:
+  target_mode: tree_ols
+  residual_industry: false
+  hard_repeat: 1
+
+model:
+  hidden_size: 48
+  dropout: 0.15
+  max_epochs: 8
+  patience: 3
+
+tree:
+  config: configs/task2/hist_lgbm.yaml
+  checkpoint: checkpoints/task2/hist_lgbm.txt
+  num_iteration: 200
+
+paths:
+  checkpoint: checkpoints/task2/cs_mlp_y2resid.pt
+  valid_pred: outputs/task2/cs_mlp_y2resid_valid.npy
+  test_pred: outputs/task2/cs_mlp_y2resid_test.npy
+  submission: submissions/task2_cs_mlp_y2resid.npy

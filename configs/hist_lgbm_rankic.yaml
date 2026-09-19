@@ -1,0 +1,17 @@
+# 相对 hist_lgbm-002：只把 MSE 换成 LambdaRankIC（直接优化 Spearman Rank IC）。
+# 特征、窗口、超参与 baseline/hist_lgbm 相同。不覆盖 hist_lgbm 产物。
+
+include: configs/hist_lgbm.yaml
+
+model:
+  params:
+    objective: lambdarank_ic
+    max_pair_samples: 512
+    n_estimators: 250
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_rankic.txt
+  valid_pred: outputs/hist_lgbm_rankic_valid.npy
+  test_pred: outputs/hist_lgbm_rankic_test.npy
+  importance: outputs/hist_lgbm_rankic_importance.csv
+  submission: submissions/task1_hist_lgbm_rankic.npy

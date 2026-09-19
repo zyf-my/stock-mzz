@@ -1,0 +1,11 @@
+# only6 GRU seed 43 for bagging (y2)
+
+include: configs/task2/gru_only6_with_today.yaml
+
+seed: 43
+
+paths:
+  checkpoint: checkpoints/task2/gru_only6_with_today_s43.pt
+  valid_pred: outputs/task2/gru_only6_with_today_s43_valid.npy
+  test_pred: outputs/task2/gru_only6_with_today_s43_test.npy
+  submission: submissions/task2_gru_only6_with_today_s43.npy

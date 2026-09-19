@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.config import load_config, resolve_data_path  # noqa: E402
-from src.dataset import drop_task2_label, load_panel, slice_split, split_bounds  # noqa: E402
+from src.dataset import drop_other_label, load_panel, resolve_label_key, slice_split, split_bounds, split_label_array  # noqa: E402
 from src.metrics import mean_rank_ic  # noqa: E402
 from src.models.gru_ts import GRUModel  # noqa: E402
 from src.submit import save_submission  # noqa: E402
@@ -40,12 +40,13 @@ def main() -> None:
 
     cfg = load_config(args.config)
     seed = int(cfg.get("seed", 42))
+    label_key = resolve_label_key(cfg)
     feat = dict(cfg.get("features") or {})
     model_cfg = dict(cfg.get("model") or {})
     train_cfg = dict(cfg.get("train") or {})
     paths = cfg.get("paths") or {}
     fill_invalid = float(train_cfg.get("fill_invalid", 0.0))
-    gru_cfg = {**feat, **model_cfg, **train_cfg}
+    gru_cfg = {**feat, **model_cfg, **train_cfg, "label_key": label_key}
 
     try:
         import torch
@@ -56,11 +57,12 @@ def main() -> None:
         pass
 
     print(f"config={args.config}")
-    print(f"seed={seed}")
+    print(f"seed={seed} label_key={label_key}")
     print(
         f"GRU L={feat.get('length')} include_t={feat.get('include_current_day', True)} "
         f"source={feat.get('source', 'cs_zscore')} "
-        f"cols={len(feat.get('num_indices') or [])} hidden={model_cfg.get('hidden_size')} "
+        f"cols={len(feat.get('num_indices') or [])} rnn={model_cfg.get('rnn') or 'gru'} "
+        f"pool={model_cfg.get('pool') or 'last'} hidden={model_cfg.get('hidden_size')} "
         f"max_train_stocks={feat.get('max_train_stocks_per_day')} "
         f"loss={model_cfg.get('loss', 'mse')} target={model_cfg.get('target_mode', 'y1')} "
         f"accum={model_cfg.get('accum_days', 1)} lr_sched={model_cfg.get('lr_schedule') or 'const'} "
@@ -73,7 +75,12 @@ def main() -> None:
 
     t0 = time.perf_counter()
     data = load_panel(str(data_path))
-    drop_task2_label(data)
+    target_mode = str(model_cfg.get("target_mode", "y1")).lower()
+    if target_mode == "y2_ortho":
+        if label_key != "y2":
+            raise ValueError("y2_ortho requires label_key y2")
+    else:
+        drop_other_label(data, label_key)
     print(f"loaded in {time.perf_counter() - t0:.1f}s  num_x={tuple(data['num_x'].shape)}")
 
     train_start, train_end = split_bounds(data, "train")
@@ -91,13 +98,16 @@ def main() -> None:
     _drop_heavy_panels(data, valid, test)
     print(f"cs cache {time.perf_counter() - t1:.1f}s; dropped num_x/cat_x")
 
+    if target_mode == "y2_ortho":
+        model.fit_ortho_beta(data, train_start, train_end)
+
     t2 = time.perf_counter()
     fit_info = model.fit(data, train_start, train_end, valid=valid)
     print(f"fit {time.perf_counter() - t2:.1f}s best_valid_ic={fit_info.get('best_valid_ic')}")
 
     t3 = time.perf_counter()
     valid_pred = model.predict_panel(valid, data, fill_invalid=fill_invalid)
-    valid_ic = mean_rank_ic(valid_pred, valid["y1"], valid["mask_y"])
+    valid_ic = mean_rank_ic(valid_pred, split_label_array(valid, label_key), valid["mask_y"])
     print(f"valid mean RankIC={valid_ic:.6f}  predict {time.perf_counter() - t3:.1f}s")
 
     valid_pred_path = ROOT / paths.get("valid_pred", "outputs/gru_valid.npy")

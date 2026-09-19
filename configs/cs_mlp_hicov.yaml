@@ -1,0 +1,34 @@
+include: configs/cs_mlp.yaml
+features:
+  num_indices:
+  - 72
+  - 84
+  - 76
+  - 61
+  - 60
+  - 86
+  - 68
+  - 38
+  - 39
+  - 57
+  - 69
+  - 10
+  - 79
+  - 50
+  - 3
+  - 64
+  - 46
+  - 5
+  - 74
+  - 90
+  - 66
+  max_train_stocks_per_day: 2000
+train:
+  recent_days: 800
+  min_train_coverage: 4000
+  holdout_days: 40
+paths:
+  checkpoint: checkpoints/cs_mlp_hicov.pt
+  valid_pred: outputs/cs_mlp_hicov_valid.npy
+  test_pred: outputs/cs_mlp_hicov_test.npy
+  submission: submissions/task1_cs_mlp_hicov.npy

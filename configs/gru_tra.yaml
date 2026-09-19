@@ -1,0 +1,15 @@
+# 缩小版 TRA：相对 ALSTM，LSTM+attn 后再加 3 个专家头 + softmax 路由。
+# 列、当天、末 800 天、每天 2000、MSE 不变。不覆盖 x6_today / 主融合。
+
+include: configs/gru_alstm.yaml
+
+model:
+  rnn: lstm
+  pool: tra
+  tra_experts: 3
+
+paths:
+  checkpoint: checkpoints/gru_tra.pt
+  valid_pred: outputs/gru_tra_valid.npy
+  test_pred: outputs/gru_tra_test.npy
+  submission: submissions/task1_gru_tra.npy

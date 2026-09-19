@@ -1,0 +1,11 @@
+include: configs/hist_lgbm.yaml
+
+train:
+  label_key: y2
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm.txt
+  valid_pred: outputs/task2/hist_lgbm_valid.npy
+  test_pred: outputs/task2/hist_lgbm_test.npy
+  importance: outputs/task2/hist_lgbm_importance.csv
+  submission: submissions/task2_hist_lgbm.npy

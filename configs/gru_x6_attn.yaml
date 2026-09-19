@@ -1,0 +1,12 @@
+# 相对 x6_today：只改时序池化 last → attention。末 800 天、列、当天、MSE 不变。
+
+include: configs/gru_x6_with_today.yaml
+
+model:
+  pool: attn
+
+paths:
+  checkpoint: checkpoints/gru_x6_attn.pt
+  valid_pred: outputs/gru_x6_attn_valid.npy
+  test_pred: outputs/gru_x6_attn_test.npy
+  submission: submissions/task1_gru_x6_attn.npy

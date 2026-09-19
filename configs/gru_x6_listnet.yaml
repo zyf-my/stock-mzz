@@ -1,0 +1,12 @@
+# 相对 x6_today：只改损失 MSE → ListNet。末 800 天、列、当天不变。
+
+include: configs/gru_x6_with_today.yaml
+
+model:
+  loss: listnet
+
+paths:
+  checkpoint: checkpoints/gru_x6_listnet.pt
+  valid_pred: outputs/gru_x6_listnet_valid.npy
+  test_pred: outputs/gru_x6_listnet_test.npy
+  submission: submissions/task1_gru_x6_listnet.npy

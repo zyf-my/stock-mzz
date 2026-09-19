@@ -1,0 +1,12 @@
+# 相对 x6_today：只把 MSE 换成同日 pairwise logistic（BPR）。不覆盖 x6_today。
+
+include: configs/gru_x6_with_today.yaml
+
+model:
+  loss: pairwise
+
+paths:
+  checkpoint: checkpoints/gru_x6_pairwise.pt
+  valid_pred: outputs/gru_x6_pairwise_valid.npy
+  test_pred: outputs/gru_x6_pairwise_test.npy
+  submission: submissions/task1_gru_x6_pairwise.npy

@@ -1,0 +1,15 @@
+# 相对 x6_today：去掉末 800 天限制，全量 2432 天；高覆盖日（train≥4000）重复 3 次。
+# 目的：纠正「只拟合 valid 邻域」导致 GRU 在 test（cov≥4725）掉分。不覆盖 x6_today 产物。
+
+include: configs/gru_x6_with_today.yaml
+
+train:
+  recent_days: 0
+  high_cov_repeat: 3
+  high_cov_tau: 4000
+
+paths:
+  checkpoint: checkpoints/gru_x6_full_hicov.pt
+  valid_pred: outputs/gru_x6_full_hicov_valid.npy
+  test_pred: outputs/gru_x6_full_hicov_test.npy
+  submission: submissions/task1_gru_x6_full_hicov.npy

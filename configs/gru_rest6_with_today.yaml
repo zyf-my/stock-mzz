@@ -1,0 +1,14 @@
+# 相对 next6：下一档未用列，按 train 末 800 天 |RankIC| 选取（不含 valid）。
+# 丢掉 col 23（该窗上 RankIC 为 NaN）。不覆盖 next6 / 锁定融合。
+
+include: configs/gru_next6_with_today.yaml
+
+features:
+  num_indices: [76, 50, 75, 86, 48, 49]
+  include_current_day: true
+
+paths:
+  checkpoint: checkpoints/gru_rest6_with_today.pt
+  valid_pred: outputs/gru_rest6_with_today_valid.npy
+  test_pred: outputs/gru_rest6_with_today_test.npy
+  submission: submissions/task1_gru_rest6_with_today.npy

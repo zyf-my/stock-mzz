@@ -1,0 +1,14 @@
+# 相对 task2 hist：只把每天训练股票 800→1200。列、窗口、树超参不动。
+# 不覆盖 hist_lgbm / hist_n200 主文件。
+
+include: configs/task2/hist_lgbm.yaml
+
+features:
+  max_train_stocks_per_day: 1200
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_n1200.txt
+  valid_pred: outputs/task2/hist_lgbm_n1200_valid.npy
+  test_pred: outputs/task2/hist_lgbm_n1200_test.npy
+  importance: outputs/task2/hist_lgbm_n1200_importance.csv
+  submission: submissions/task2_hist_lgbm_n1200.npy

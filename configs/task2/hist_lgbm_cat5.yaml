@@ -1,0 +1,13 @@
+# y2 hist + cat_5（4094 档，疑似 ID）；低成本试探 y2 独有截面结构
+
+include: configs/task2/hist_lgbm.yaml
+
+features:
+  cat_indices: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_cat5.txt
+  valid_pred: outputs/task2/hist_lgbm_cat5_valid.npy
+  test_pred: outputs/task2/hist_lgbm_cat5_test.npy
+  importance: outputs/task2/hist_lgbm_cat5_importance.csv
+  submission: submissions/task2_hist_lgbm_cat5.npy

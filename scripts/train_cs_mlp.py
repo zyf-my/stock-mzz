@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.config import load_config, resolve_data_path  # noqa: E402
-from src.dataset import drop_task2_label, load_panel, slice_split, split_bounds  # noqa: E402
+from src.dataset import drop_other_label, load_panel, resolve_label_key, slice_split, split_bounds, split_label_array  # noqa: E402
 from src.metrics import mean_rank_ic  # noqa: E402
 from src.models.cs_mlp import CSMLPModel  # noqa: E402
 from src.models.fusion import FusionModel  # noqa: E402
@@ -54,12 +54,13 @@ def main() -> None:
 
     cfg = load_config(args.config)
     seed = int(cfg.get("seed", 42))
+    label_key = resolve_label_key(cfg)
     feat = dict(cfg.get("features") or {})
     model_cfg = dict(cfg.get("model") or {})
     train_cfg = dict(cfg.get("train") or {})
     paths = cfg.get("paths") or {}
     fill_invalid = float(train_cfg.get("fill_invalid", 0.0))
-    mlp_cfg = {**feat, **model_cfg, **train_cfg}
+    mlp_cfg = {**feat, **model_cfg, **train_cfg, "label_key": label_key}
 
     try:
         import torch
@@ -70,7 +71,7 @@ def main() -> None:
         pass
 
     print(f"config={args.config}")
-    print(f"seed={seed}")
+    print(f"seed={seed} label_key={label_key}")
     print(
         f"CSMLP cols={len(feat.get('num_indices') or [])} hidden={model_cfg.get('hidden_size')} "
         f"loss={model_cfg.get('loss', 'pearson_ic')} residual={feat.get('residual_industry', True)} "
@@ -82,7 +83,7 @@ def main() -> None:
 
     t0 = time.perf_counter()
     data = load_panel(str(data_path))
-    drop_task2_label(data)
+    drop_other_label(data, label_key)
     print(f"loaded in {time.perf_counter() - t0:.1f}s  num_x={tuple(data['num_x'].shape)}")
 
     train_start, train_end = split_bounds(data, "train")
@@ -106,7 +107,7 @@ def main() -> None:
 
     t3 = time.perf_counter()
     valid_pred = model.predict_panel(valid, data, fill_invalid=fill_invalid)
-    valid_ic = mean_rank_ic(valid_pred, valid["y1"], valid["mask_y"])
+    valid_ic = mean_rank_ic(valid_pred, split_label_array(valid, label_key), valid["mask_y"])
     print(f"valid mean RankIC={valid_ic:.6f}  predict {time.perf_counter() - t3:.1f}s")
 
     valid_pred_path = ROOT / paths.get("valid_pred", "outputs/cs_mlp_valid.npy")
@@ -152,7 +153,7 @@ def main() -> None:
         locked = blender.fit(
             valid_pred,
             np.load(blend_path),
-            valid["y1"],
+            split_label_array(valid, label_key),
             valid["mask_y"],
             valid["mask_x"],
             industry=model.industry[valid["start"] : valid["end"]] if model.industry is not None else None,

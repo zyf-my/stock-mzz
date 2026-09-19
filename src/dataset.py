@@ -3,6 +3,7 @@
 Causal contract:
 - Cross-section / industry z-scores use only that day's mask_x stocks.
 - History stats use days in [global_t - L, global_t) only. Day t and later never enter.
+- Stock-own z-score uses that same past window for mean/std; the value being scored is day t.
 - Do not shuffle rows across time. Do not put y1 of other stocks into X.
 """
 
@@ -16,8 +17,22 @@ import numpy as np
 from .io import read_zstd, split_ranges
 
 SplitName = Literal["train", "valid", "test", "history"]
+LabelKey = Literal["y1", "y2"]
 
 _EPS = 1e-8
+
+
+def split_label_array(split: dict[str, Any], label_key: LabelKey = "y1") -> np.ndarray:
+    key = str(label_key)
+    if key not in split:
+        raise KeyError(f"split missing label {key!r}")
+    return split[key]
+
+
+def drop_other_label(data: dict[str, Any], label_key: LabelKey = "y1") -> None:
+    """Drop the non-target label so it cannot leak into features."""
+    other = "y2" if label_key == "y1" else "y1"
+    data.pop(other, None)
 
 
 def load_panel(path: str) -> dict[str, Any]:
@@ -26,7 +41,7 @@ def load_panel(path: str) -> dict[str, Any]:
 
 def drop_task2_label(data: dict[str, Any]) -> None:
     """Drop y2 so it cannot leak into features; also frees a bit of RAM."""
-    data.pop("y2", None)
+    drop_other_label(data, "y1")
 
 
 def split_bounds(data: dict[str, Any], split: SplitName) -> tuple[int, int]:
@@ -40,15 +55,16 @@ def split_bounds(data: dict[str, Any], split: SplitName) -> tuple[int, int]:
 
 def slice_split(data: dict[str, Any], split: SplitName) -> dict[str, Any]:
     start, end = split_bounds(data, split)
-    out = {
+    out: dict[str, Any] = {
         "start": start,
         "end": end,
         "num_x": data["num_x"][start:end],
         "cat_x": data["cat_x"][start:end],
-        "y1": data["y1"][start:end],
         "mask_x": data["mask_x"][start:end],
         "mask_y": data["mask_y"][start:end],
     }
+    if "y1" in data:
+        out["y1"] = data["y1"][start:end]
     if "y2" in data:
         out["y2"] = data["y2"][start:end]
     # Views of the full panel so history can look back across split boundaries.
@@ -70,6 +86,33 @@ def keep_recent_days(split: dict[str, Any], n_days: int) -> dict[str, Any]:
             out[key] = out[key][skip:]
     out["start"] = int(split["start"]) + skip
     return out
+
+
+def slice_days(split: dict[str, Any], local_start: int, local_end: int) -> dict[str, Any]:
+    """Keep local days [local_start, local_end) of a split. History still via panel_*."""
+    lo = int(local_start)
+    hi = int(local_end)
+    n = int(split["num_x"].shape[0])
+    lo = max(0, lo)
+    hi = min(n, hi)
+    if lo == 0 and hi == n:
+        return split
+    out = dict(split)
+    for key in ("num_x", "cat_x", "y1", "mask_x", "mask_y", "y2", "industry"):
+        if key in out and out[key] is not None:
+            out[key] = out[key][lo:hi]
+    out["start"] = int(split["start"]) + lo
+    if "end" in split:
+        out["end"] = int(split["start"]) + hi
+    return out
+
+
+def resolve_label_key(cfg: dict[str, Any]) -> LabelKey:
+    raw = (cfg.get("train") or {}).get("label_key") or cfg.get("label_key") or "y1"
+    key = str(raw)
+    if key not in ("y1", "y2"):
+        raise ValueError(f"unknown label_key {key!r}")
+    return key  # type: ignore[return-value]
 
 
 def split_cache_dir(root: Path | None = None) -> Path:
@@ -97,8 +140,7 @@ def dump_split_cache(
     for name in splits:
         sl = slice_split(data, name)
         path = dest / f"{name}.npz"
-        np.savez(
-            path,
+        payload = dict(
             y1=np.array(sl["y1"], dtype=np.float32, copy=True),
             mask_x=np.array(sl["mask_x"], dtype=bool, copy=True),
             mask_y=np.array(sl["mask_y"], dtype=bool, copy=True),
@@ -107,6 +149,9 @@ def dump_split_cache(
             end=np.int32(sl["end"]),
             industry_col=np.int32(industry_col),
         )
+        if "y2" in sl:
+            payload["y2"] = np.array(sl["y2"], dtype=np.float32, copy=True)
+        np.savez(path, **payload)
         written.append(path)
         print(f"  wrote {path} y1={sl['y1'].shape} {path.stat().st_size / 1e6:.1f}MB")
     return written
@@ -118,7 +163,7 @@ def load_split_cache(split: SplitName, dest: Path | None = None) -> dict[str, An
     if not path.is_file():
         raise FileNotFoundError(path)
     with np.load(path) as z:
-        return {
+        out = {
             "start": int(z["start"]),
             "end": int(z["end"]),
             "y1": np.array(z["y1"]),
@@ -127,6 +172,9 @@ def load_split_cache(split: SplitName, dest: Path | None = None) -> dict[str, An
             "industry": np.array(z["industry"]),
             "industry_col": int(z["industry_col"]),
         }
+        if "y2" in z.files:
+            out["y2"] = np.array(z["y2"])
+        return out
 
 
 def load_eval_splits(
@@ -217,6 +265,21 @@ def market_state_width(feature_cfg: dict[str, Any]) -> int:
     return n
 
 
+def stock_zscore_spec(feature_cfg: dict[str, Any]) -> dict[str, Any] | None:
+    spec = feature_cfg.get("stock_zscore") or {}
+    if not spec.get("enabled"):
+        return None
+    return spec
+
+
+def stock_zscore_width(feature_cfg: dict[str, Any]) -> int:
+    """Per-stock z vs its own [t-L, t) history. Not cross-section, not industry."""
+    spec = stock_zscore_spec(feature_cfg)
+    if spec is None:
+        return 0
+    return len(spec.get("num_indices") or [])
+
+
 def _day_market_vector(num_t: np.ndarray, mask_x_t: np.ndarray, mkt: dict[str, Any]) -> np.ndarray:
     mask = np.asarray(mask_x_t, dtype=bool)
     n_valid = int(mask.sum())
@@ -287,6 +350,9 @@ def feature_names(n_num: int, cat_indices: list[int], feature_cfg: dict[str, Any
         for stat in mkt.get("stats") or ["mean", "std"]:
             for col in mkt.get("num_indices") or []:
                 names.append(f"mkt_{stat}_{int(col)}")
+    spec = stock_zscore_spec(feature_cfg)
+    if spec is not None:
+        names.extend(f"stockz_{int(col)}" for col in spec.get("num_indices") or [])
     return names
 
 
@@ -577,7 +643,8 @@ def _hist_window_stats(
         var = np.nansum((win_m - mu[None, :, :]) ** 2, axis=0) / np.maximum(count[:, None], 1.0)
         sd = np.sqrt(np.maximum(var, 0.0)).astype(np.float32)
         sd = np.where(count[:, None] >= 2, sd, 0.0)
-        if "last" in stats or "delta" in stats:
+        need_last = any(s in stats for s in ("last", "delta", "ts_rank"))
+        if need_last:
             last_idx = np.where(wmask, np.arange(wmask.shape[0], dtype=np.int32)[:, None], -1).max(axis=0)
             last = np.zeros((n_sel, cols.size), dtype=np.float32)
             has = last_idx >= 0
@@ -585,7 +652,7 @@ def _hist_window_stats(
             if sel.size:
                 last[sel] = win[last_idx[sel], sel, :]
         ewm = None
-        if "ewm" in stats:
+        if "ewm" in stats or "decay" in stats:
             age = np.arange(win.shape[0] - 1, -1, -1, dtype=np.float32)
             decay = np.power(0.5, age / max(float(ewm_halflife), 1e-3)).astype(np.float32)
             w = decay[:, None, None]
@@ -593,18 +660,45 @@ def _hist_window_stats(
             num = np.where(valid, win * w, 0.0).sum(axis=0)
             den = np.where(valid, w, 0.0).sum(axis=0)
             ewm = np.where(den > 0, num / np.maximum(den, 1e-8), 0.0).astype(np.float32)
+        ts_rank = None
+        if "ts_rank" in stats:
+            if last is None:
+                raise RuntimeError("ts_rank needs last")
+            le = (win_m <= last[None, :, :]) & ~np.isnan(win_m)
+            ts_rank = (le.sum(axis=0) / np.maximum(count[:, None], 1.0)).astype(np.float32)
+        slope = None
+        if "slope" in stats:
+            tcoord = np.arange(win.shape[0], dtype=np.float64)[:, None]
+            t_mu = (tcoord * wmask).sum(axis=0) / np.maximum(count, 1.0)
+            tdev = (tcoord - t_mu[None, :]) * wmask
+            num_s = np.nansum(tdev[:, :, None] * (win_m - mu[None, :, :]), axis=0)
+            den_s = (tdev ** 2).sum(axis=0)[:, None]
+            slope = np.where(den_s > 1e-8, num_s / np.maximum(den_s, 1e-8), 0.0).astype(np.float32)
+        mx = None
+        mn = None
+        if "max" in stats:
+            mx = np.where(count[:, None] > 0, np.nanmax(win_m, axis=0), 0.0).astype(np.float32)
+        if "min" in stats:
+            mn = np.where(count[:, None] > 0, np.nanmin(win_m, axis=0), 0.0).astype(np.float32)
         by_name = {
             "mean": mu,
             "std": sd,
             "last": last,
             "delta": None if last is None else (last - mu).astype(np.float32),
             "ewm": ewm,
+            "decay": ewm,
+            "ts_rank": ts_rank,
+            "slope": slope,
+            "max": mx,
+            "min": mn,
         }
         blocks: list[np.ndarray] = []
         for stat in stats:
             block = by_name.get(stat)
             if block is None:
-                raise ValueError(f"unknown history stat {stat!r}; use mean/std/last/delta/ewm")
+                raise ValueError(
+                    f"unknown history stat {stat!r}; use mean/std/last/delta/ewm/decay/ts_rank/slope/max/min"
+                )
             blocks.append(block)
     return np.concatenate(blocks, axis=1)
 
@@ -664,9 +758,54 @@ def build_sample_features(
     )
     if mkt.shape[1] > 0:
         blocks.append(mkt)
+    if stock_zscore_spec(feature_cfg) is not None:
+        if panel_num_x is None or panel_mask_x is None:
+            raise ValueError("stock_zscore features need panel_num_x and panel_mask_x")
+        blocks.append(
+            build_stock_z_features(panel_num_x, panel_mask_x, global_t, num_t, stock_idx, feature_cfg)
+        )
     if len(blocks) == 1:
         return day
     return np.concatenate(blocks, axis=1)
+
+
+def build_stock_z_features(
+    panel_num_x: np.ndarray,
+    panel_mask_x: np.ndarray,
+    global_t: int,
+    num_t: np.ndarray,
+    stock_idx: np.ndarray,
+    feature_cfg: dict[str, Any],
+) -> np.ndarray:
+    """(x_t - mean_own[t-L, t)) / std_own. Mean/std never see day t or later."""
+    spec = stock_zscore_spec(feature_cfg)
+    n_sel = int(np.asarray(stock_idx).shape[0])
+    if spec is None:
+        return np.zeros((n_sel, 0), dtype=np.float32)
+    cols = np.asarray(spec.get("num_indices") or [], dtype=np.int64)
+    length = int(spec.get("length", 20))
+    clip = spec.get("clip", 5.0)
+    if cols.size == 0:
+        return np.zeros((n_sel, 0), dtype=np.float32)
+    today = np.asarray(num_t[stock_idx][:, cols], dtype=np.float32)
+    start = max(0, int(global_t) - length)
+    end = int(global_t)
+    if end <= start:
+        return np.zeros((n_sel, int(cols.size)), dtype=np.float32)
+    win = np.asarray(panel_num_x[start:end][:, stock_idx][:, :, cols], dtype=np.float32)
+    wmask = np.asarray(panel_mask_x[start:end][:, stock_idx], dtype=bool)
+    win_m = np.where(wmask[:, :, None], win, np.nan)
+    count = wmask.sum(axis=0).astype(np.float32)
+    with np.errstate(all="ignore"):
+        mu = np.nansum(win_m, axis=0) / np.maximum(count[:, None], 1.0)
+        mu = np.where(count[:, None] > 0, mu, 0.0)
+        var = np.nansum((win_m - mu[None, :, :]) ** 2, axis=0) / np.maximum(count[:, None], 1.0)
+        sd = np.sqrt(np.maximum(var, 0.0))
+        ok = (count[:, None] >= 2) & (sd > 1e-6)
+        z = np.where(ok, (today - mu) / np.maximum(sd, 1e-6), 0.0).astype(np.float32)
+    if clip is not None:
+        np.clip(z, -float(clip), float(clip), out=z)
+    return z
 
 
 def _stocks_for_day(
@@ -782,6 +921,7 @@ def flatten_masked_rows(
     require_label: bool = True,
     feature_cfg: dict[str, Any] | None = None,
     seed: int = 42,
+    label_key: LabelKey = "y1",
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Flatten a split into LightGBM-style rows.
 
@@ -810,7 +950,11 @@ def flatten_masked_rows(
 
     day_indices: list[np.ndarray] = []
     n_rows = 0
+    min_day_cov = int(feature_cfg.get("min_day_coverage") or 0)
     for t in range(n_days):
+        if min_day_cov > 0 and int(np.asarray(split_data["mask_x"][t], dtype=bool).sum()) < min_day_cov:
+            day_indices.append(np.array([], dtype=np.int64))
+            continue
         groups = split_data["cat_x"][t][:, industry_col] if stratify else None
         idx = _stocks_for_day(
             split_data["mask_x"][t],
@@ -828,6 +972,7 @@ def flatten_masked_rows(
         + len(cat_indices)
         + history_width(feature_cfg)
         + market_state_width(feature_cfg)
+        + stock_zscore_width(feature_cfg)
     )
     x = np.empty((n_rows, n_feat), dtype=np.float32)
     y = np.empty((n_rows,), dtype=np.float32)
@@ -849,7 +994,7 @@ def flatten_masked_rows(
             panel_num_x=split_data.get("panel_num_x"),
             panel_mask_x=split_data.get("panel_mask_x"),
         )
-        y[sl] = np.asarray(split_data["y1"][t][idx], dtype=np.float32)
+        y[sl] = np.asarray(split_label_array(split_data, label_key)[t][idx], dtype=np.float32)
         coords[sl, 0] = t
         coords[sl, 1] = idx
         cursor += idx.size

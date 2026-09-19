@@ -1,0 +1,14 @@
+# 相对锁定 alpha-x：只把每天抽样 800 只提到 1600。列、窗口、DoubleEnsemble 不变。
+# 矩阵大约 9GB，按 16GB 机器估。不覆盖主融合。
+
+include: configs/hist_lgbm_alpha_x.yaml
+
+features:
+  max_train_stocks_per_day: 1600
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_alpha_x_n1600.txt
+  valid_pred: outputs/hist_lgbm_alpha_x_n1600_valid.npy
+  test_pred: outputs/hist_lgbm_alpha_x_n1600_test.npy
+  importance: outputs/hist_lgbm_alpha_x_n1600_importance.csv
+  submission: submissions/task1_hist_lgbm_alpha_x_n1600.npy

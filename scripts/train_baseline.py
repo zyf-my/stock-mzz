@@ -19,13 +19,15 @@ sys.path.insert(0, str(ROOT))
 
 from src.config import load_config, resolve_data_path  # noqa: E402
 from src.dataset import (  # noqa: E402
-    drop_task2_label,
+    drop_other_label,
     flatten_masked_rows,
     group_sizes,
     keep_recent_days,
     load_panel,
     resolve_cat_indices,
+    resolve_label_key,
     slice_split,
+    split_label_array,
     within_day_relevance,
 )
 from src.metrics import mean_rank_ic  # noqa: E402
@@ -49,13 +51,14 @@ def main() -> None:
 
     cfg = load_config(args.config)
     seed = int(cfg.get("seed", 42))
+    label_key = resolve_label_key(cfg)
     feature_cfg = dict(cfg.get("features") or {})
     cat_indices = resolve_cat_indices(feature_cfg)
     fill_invalid = float((cfg.get("train") or {}).get("fill_invalid", 0.0))
     paths = cfg.get("paths") or {}
 
     print(f"config={args.config}")
-    print(f"seed={seed}")
+    print(f"seed={seed} label_key={label_key}")
     print(f"cat_indices={cat_indices}")
     print(
         "features include_raw={include_raw} cs_zscore={cs_zscore} industry_zscore={industry_zscore} "
@@ -86,7 +89,7 @@ def main() -> None:
 
     t0 = time.perf_counter()
     data = load_panel(str(data_path))
-    drop_task2_label(data)
+    drop_other_label(data, label_key)
     print(f"loaded in {time.perf_counter() - t0:.1f}s  num_x={tuple(data['num_x'].shape)}")
 
     train = slice_split(data, "train")
@@ -96,6 +99,13 @@ def main() -> None:
     if recent_days:
         train = keep_recent_days(train, int(recent_days))
         print(f"train recent_days={int(recent_days)} start={train['start']}")
+    min_day_cov = int((cfg.get("train") or {}).get("min_day_coverage") or 0)
+    if min_day_cov > 0:
+        feature_cfg = dict(feature_cfg)
+        feature_cfg["min_day_coverage"] = min_day_cov
+        n_x = np.asarray(train["mask_x"]).sum(axis=1)
+        n_keep = int((n_x >= min_day_cov).sum())
+        print(f"min_day_coverage={min_day_cov} train days {n_x.size}->{n_keep}")
     print(f"days train={train['num_x'].shape[0]} valid={valid['num_x'].shape[0]} test={test['num_x'].shape[0]}")
 
     t1 = time.perf_counter()
@@ -105,6 +115,7 @@ def main() -> None:
         require_label=True,
         feature_cfg=feature_cfg,
         seed=seed,
+        label_key=label_key,
     )
     print(
         f"train rows={x_train.shape[0]} cols={x_train.shape[1]} "
@@ -112,8 +123,10 @@ def main() -> None:
     )
 
     rank_label = (cfg.get("train") or {}).get("rank_label")
+    params = (cfg.get("model") or {}).get("params") or {}
+    objective = str(params.get("objective", "regression")).lower()
     group = None
-    if rank_label:
+    if rank_label or objective == "lambdarank_ic":
         if rank_label == "within_day_rank":
             n_grades = int((cfg.get("train") or {}).get("rank_grades", 5))
             y_train = within_day_relevance(y_train, coords, n_grades=n_grades)
@@ -122,11 +135,46 @@ def main() -> None:
                 f"unique={int(np.unique(y_train).size)}"
             )
         group = group_sizes(coords)
-        print(f"rank_label={rank_label} groups={group.size} mean_group={float(group.mean()):.1f}")
+        print(f"rank_label={rank_label or 'raw_y1'} groups={group.size} mean_group={float(group.mean()):.1f}")
+
+    sample_weight = None
+    weight_mode = str((cfg.get("train") or {}).get("sample_weight") or "").strip()
+    if weight_mode == "coverage_linear":
+        n_x = np.asarray(train["mask_x"]).sum(axis=1).astype(np.float64)
+        lo, hi = float(n_x.min()), float(n_x.max())
+        day_w = 0.5 + 0.5 * (n_x - lo) / max(hi - lo, 1.0)
+        sample_weight = day_w[np.asarray(coords[:, 0], dtype=np.int32)]
+        print(
+            f"sample_weight=coverage_linear days={n_x.size} "
+            f"n_x={lo:.0f}..{hi:.0f} w={day_w.min():.3f}..{day_w.max():.3f} "
+            f"mean={float(sample_weight.mean()):.3f}"
+        )
+    elif weight_mode:
+        raise ValueError(f"unknown train.sample_weight {weight_mode!r}")
 
     model = LightGBMBaseline(params=(cfg.get("model") or {}).get("params") or {}, feature_cfg=feature_cfg, seed=seed)
+    init_ckpt = (cfg.get("train") or {}).get("init_checkpoint")
+    finetune_rounds = (cfg.get("train") or {}).get("finetune_rounds")
+    init_booster = None
+    if init_ckpt:
+        base = LightGBMBaseline(
+            params=(cfg.get("model") or {}).get("params") or {},
+            feature_cfg=feature_cfg,
+            seed=seed,
+        )
+        base.load(ROOT / init_ckpt)
+        init_booster = base.booster
+        if finetune_rounds:
+            model.params = dict(model.params)
+            model.params["n_estimators"] = int(finetune_rounds)
+            print(f"init_checkpoint={init_ckpt} finetune_rounds={finetune_rounds}")
     t2 = time.perf_counter()
-    model.fit(x_train, y_train, group=group)
+    if bool((cfg.get("train") or {}).get("double_ensemble")):
+        keep_frac = float((cfg.get("train") or {}).get("double_keep_frac") or 0.6)
+        print(f"double_ensemble keep_frac={keep_frac}")
+        model.fit_double_ensemble(x_train, y_train, keep_frac=keep_frac, sample_weight=sample_weight)
+    else:
+        model.fit(x_train, y_train, group=group, sample_weight=sample_weight, init_model=init_booster)
     print(f"fit {time.perf_counter() - t2:.1f}s")
     del x_train, y_train
 
@@ -136,11 +184,11 @@ def main() -> None:
     t3 = time.perf_counter()
     preds = model.predict_panel_iters(valid, report_iters, fill_invalid=fill_invalid)
     for n in report_iters:
-        ic_n = float(mean_rank_ic(preds[n], valid["y1"], valid["mask_y"]))
+        ic_n = float(mean_rank_ic(preds[n], split_label_array(valid, label_key), valid["mask_y"]))
         tag = "all" if n is None else str(n)
         print(f"valid mean RankIC@{tag}={ic_n:.6f}")
     valid_pred = preds[report_iters[-1]]
-    valid_ic = float(mean_rank_ic(valid_pred, valid["y1"], valid["mask_y"]))
+    valid_ic = float(mean_rank_ic(valid_pred, split_label_array(valid, label_key), valid["mask_y"]))
     print(f"valid mean RankIC={valid_ic:.6f}  predict {time.perf_counter() - t3:.1f}s")
 
     importance = model.feature_importance()

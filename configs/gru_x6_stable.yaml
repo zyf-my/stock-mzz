@@ -1,0 +1,17 @@
+# 只改 x6 GRU 的训练稳定性：8 天梯度累积、cosine lr、截面名次 MSE、一层也 dropout。
+# 特征 / 窗口 / 列 / 不含当天 与锁定 x6 相同。不覆盖 x6 checkpoint。
+
+include: configs/gru_no_today_recent_n2000_x6.yaml
+
+model:
+  target_mode: rank
+  accum_days: 8
+  lr_schedule: cosine
+  head_dropout: 0.1
+  weight_decay: 0.001
+
+paths:
+  checkpoint: checkpoints/gru_x6_stable.pt
+  valid_pred: outputs/gru_x6_stable_valid.npy
+  test_pred: outputs/gru_x6_stable_test.npy
+  submission: submissions/task1_gru_x6_stable.npy

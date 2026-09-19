@@ -1,0 +1,15 @@
+# y2cols 时序树 + 原 baseline。不覆盖 outputs/task2/fusion_*。
+
+include: configs/task2/fusion.yaml
+
+inputs:
+  temporal_valid: outputs/task2/hist_lgbm_y2cols_valid.npy
+  temporal_test: outputs/task2/hist_lgbm_y2cols_test.npy
+  cross_section_valid: outputs/task2/baseline_valid.npy
+  cross_section_test: outputs/task2/baseline_test.npy
+
+paths:
+  valid_pred: outputs/task2/fusion_y2cols_valid.npy
+  test_pred: outputs/task2/fusion_y2cols_test.npy
+  submission: submissions/task2_fusion_y2cols.npy
+  lock: outputs/task2/fusion_y2cols_lock.json

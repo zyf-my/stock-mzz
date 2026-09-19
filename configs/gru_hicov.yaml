@@ -1,0 +1,34 @@
+include: configs/gru_x6_with_today.yaml
+features:
+  num_indices:
+  - 72
+  - 84
+  - 76
+  - 61
+  - 60
+  - 86
+  - 68
+  - 38
+  - 39
+  - 57
+  - 69
+  - 10
+  - 79
+  - 50
+  - 3
+  - 64
+  - 46
+  - 5
+  - 74
+  - 90
+  - 66
+  include_current_day: true
+train:
+  recent_days: 800
+  min_train_coverage: 4000
+  holdout_days: 40
+paths:
+  checkpoint: checkpoints/gru_hicov.pt
+  valid_pred: outputs/gru_hicov_valid.npy
+  test_pred: outputs/gru_hicov_test.npy
+  submission: submissions/task1_gru_hicov.npy

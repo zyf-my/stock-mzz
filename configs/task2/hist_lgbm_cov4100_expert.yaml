@@ -1,0 +1,13 @@
+# y2 hist 高覆盖专家：只在 train 日 cov>=4100 上拟合（约 110 天）
+
+include: configs/task2/hist_lgbm.yaml
+
+train:
+  min_day_coverage: 4100
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_cov4100_expert.txt
+  valid_pred: outputs/task2/hist_lgbm_cov4100_expert_valid.npy
+  test_pred: outputs/task2/hist_lgbm_cov4100_expert_test.npy
+  importance: outputs/task2/hist_lgbm_cov4100_expert_importance.csv
+  submission: submissions/task2_hist_lgbm_cov4100_expert.npy

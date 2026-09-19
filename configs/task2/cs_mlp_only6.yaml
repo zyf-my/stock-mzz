@@ -1,0 +1,10 @@
+include: configs/cs_mlp_only6.yaml
+
+train:
+  label_key: y2
+
+paths:
+  checkpoint: checkpoints/task2/cs_mlp_only6.pt
+  valid_pred: outputs/task2/cs_mlp_only6_valid.npy
+  test_pred: outputs/task2/cs_mlp_only6_test.npy
+  submission: submissions/task2_cs_mlp_only6.npy

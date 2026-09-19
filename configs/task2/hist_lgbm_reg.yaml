@@ -1,0 +1,16 @@
+# 相对 task2 hist：只改树容量。y2 上 train RankIC 虚高，先把叶子减半。
+# 不覆盖 hist_lgbm / rank-gate 主文件。
+
+include: configs/task2/hist_lgbm.yaml
+
+model:
+  params:
+    num_leaves: 15
+    min_child_samples: 80
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_reg.txt
+  valid_pred: outputs/task2/hist_lgbm_reg_valid.npy
+  test_pred: outputs/task2/hist_lgbm_reg_test.npy
+  importance: outputs/task2/hist_lgbm_reg_importance.csv
+  submission: submissions/task2_hist_lgbm_reg.npy

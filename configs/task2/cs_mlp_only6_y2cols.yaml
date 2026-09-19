@@ -1,0 +1,12 @@
+# y2 only6 六列（66→55）行业 z-score MLP。不覆盖 cs_mlp_only6。
+
+include: configs/task2/cs_mlp_only6.yaml
+
+features:
+  num_indices: [42, 58, 55, 69, 73, 74]
+
+paths:
+  checkpoint: checkpoints/task2/cs_mlp_only6_y2cols.pt
+  valid_pred: outputs/task2/cs_mlp_only6_y2cols_valid.npy
+  test_pred: outputs/task2/cs_mlp_only6_y2cols_test.npy
+  submission: submissions/task2_cs_mlp_only6_y2cols.npy

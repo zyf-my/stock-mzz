@@ -1,0 +1,13 @@
+# 相对 task2 cs_mlp：行业 z-score 列换成 y2 有限截面 RankIC Top 21。不用 17–25。
+# 不覆盖 outputs/task2/cs_mlp_*。
+
+include: configs/task2/cs_mlp.yaml
+
+features:
+  num_indices: [8, 40, 7, 42, 11, 57, 41, 58, 90, 55, 68, 39, 69, 74, 73, 38, 43, 72, 66, 87, 50]
+
+paths:
+  checkpoint: checkpoints/task2/cs_mlp_y2cols.pt
+  valid_pred: outputs/task2/cs_mlp_y2cols_valid.npy
+  test_pred: outputs/task2/cs_mlp_y2cols_test.npy
+  submission: submissions/task2_cs_mlp_y2cols.npy

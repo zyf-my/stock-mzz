@@ -1,0 +1,16 @@
+# 相对 hist-lgbm-002：全量 2432 天都留着，只按当天 mask_x 股票数做 0.5–1.0 样本权重。
+# 硬切 recent 800 天会丢掉早期制度，valid 邻域涨、更挤的 test 掉。
+# 这里不按日历砍窗：覆盖越大权越高（train 里最接近 test 的日子），早期天仍在。
+# 不覆盖 hist_lgbm / hist_lgbm_recent 产物。
+
+include: configs/hist_lgbm.yaml
+
+train:
+  sample_weight: coverage_linear
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_covw.txt
+  valid_pred: outputs/hist_lgbm_covw_valid.npy
+  test_pred: outputs/hist_lgbm_covw_test.npy
+  importance: outputs/hist_lgbm_covw_importance.csv
+  submission: submissions/task1_hist_lgbm_covw.npy

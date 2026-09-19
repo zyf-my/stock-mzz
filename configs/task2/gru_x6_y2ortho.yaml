@@ -1,0 +1,18 @@
+# y2 GRU：学 y2⊥y1 截面残差；推理用 y1_proxy 补回共享分量
+
+include: configs/task2/gru_x6_with_today.yaml
+
+model:
+  target_mode: y2_ortho
+
+train:
+  label_key: y2
+
+features:
+  y1_proxy_dir: outputs/task2
+
+paths:
+  checkpoint: checkpoints/task2/gru_x6_y2ortho.pt
+  valid_pred: outputs/task2/gru_x6_y2ortho_valid.npy
+  test_pred: outputs/task2/gru_x6_y2ortho_test.npy
+  submission: submissions/task2_gru_x6_y2ortho.npy

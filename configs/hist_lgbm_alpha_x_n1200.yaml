@@ -1,0 +1,14 @@
+# 相对锁定 alpha-x：每天抽样 800→1200。1600 在 16GB 上换页，已停。
+# 不覆盖主融合。
+
+include: configs/hist_lgbm_alpha_x.yaml
+
+features:
+  max_train_stocks_per_day: 1200
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_alpha_x_n1200.txt
+  valid_pred: outputs/hist_lgbm_alpha_x_n1200_valid.npy
+  test_pred: outputs/hist_lgbm_alpha_x_n1200_test.npy
+  importance: outputs/hist_lgbm_alpha_x_n1200_importance.csv
+  submission: submissions/task1_hist_lgbm_alpha_x_n1200.npy

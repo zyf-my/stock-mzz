@@ -1,0 +1,17 @@
+# 相对 cs_mlp：只把独立 MLP 换成行业内自注意力。特征、残差标签、全 train、每天 800 只不变。
+# 不覆盖 cs_mlp / n2000 融合产物。
+
+include: configs/cs_mlp.yaml
+
+model:
+  name: cs_attn
+  n_heads: 2
+  hidden_size: 64
+  dropout: 0.1
+  loss: pearson_ic
+
+paths:
+  checkpoint: checkpoints/cs_attn.pt
+  valid_pred: outputs/cs_attn_valid.npy
+  test_pred: outputs/cs_attn_test.npy
+  submission: submissions/task1_cs_attn.npy

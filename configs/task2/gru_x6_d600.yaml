@@ -1,0 +1,16 @@
+# 相对 task2 x6_today：只把训练窗口从末 800 天改成末 600 天（更靠近 valid 覆盖度）。
+# 不覆盖 x6 / d1200 / 主融合。
+
+include: configs/task2/gru_x6_with_today.yaml
+
+features:
+  recent_days: 600
+
+train:
+  recent_days: 600
+
+paths:
+  checkpoint: checkpoints/task2/gru_x6_d600.pt
+  valid_pred: outputs/task2/gru_x6_d600_valid.npy
+  test_pred: outputs/task2/gru_x6_d600_test.npy
+  submission: submissions/task2_gru_x6_d600.npy

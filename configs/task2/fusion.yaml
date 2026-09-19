@@ -1,0 +1,16 @@
+include: configs/fusion.yaml
+
+train:
+  label_key: y2
+
+inputs:
+  temporal_valid: outputs/task2/hist_lgbm_valid.npy
+  temporal_test: outputs/task2/hist_lgbm_test.npy
+  cross_section_valid: outputs/task2/baseline_valid.npy
+  cross_section_test: outputs/task2/baseline_test.npy
+
+paths:
+  valid_pred: outputs/task2/fusion_valid.npy
+  test_pred: outputs/task2/fusion_test.npy
+  submission: submissions/task2_fusion.npy
+  lock: outputs/task2/fusion_lock.json

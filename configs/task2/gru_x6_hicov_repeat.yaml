@@ -1,0 +1,13 @@
+# y2 GRU：末 600 天 + rank MSE + 高覆盖日重复采样（非硬过滤）
+
+include: configs/task2/gru_x6_hicov.yaml
+
+model:
+  high_cov_repeat: 3
+  high_cov_tau: 4180
+
+paths:
+  checkpoint: checkpoints/task2/gru_x6_hicov_repeat.pt
+  valid_pred: outputs/task2/gru_x6_hicov_repeat_valid.npy
+  test_pred: outputs/task2/gru_x6_hicov_repeat_test.npy
+  submission: submissions/task2_gru_x6_hicov_repeat.npy

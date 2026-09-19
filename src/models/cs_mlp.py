@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from src.dataset import neutralize_groups_1d, ols_residual_1d, precompute_ind_cols
+from src.dataset import neutralize_groups_1d, ols_residual_1d, precompute_ind_cols, split_label_array
 from src.models.gru_ts import pearson_ic_loss
 
 
@@ -71,9 +71,12 @@ class CSMLPModel:
             raise ValueError("do not feed cat_6 into the MLP; trees already use it as a group intercept")
         self.cat_embed_dim = int(cfg.get("cat_embed_dim", 8))
         self.loss_name = str(cfg.get("loss", "pearson_ic")).lower()
+        self.label_key = str(cfg.get("label_key", "y1"))
         self.residual_industry = bool(cfg.get("residual_industry", True))
         self.target_mode = str(cfg.get("target_mode") or ("industry" if self.residual_industry else "y1"))
         self.hard_repeat = int(cfg.get("hard_repeat", 1))
+        self.min_train_coverage = int(cfg.get("min_train_coverage") or 0)
+        self.holdout_days = max(0, int(cfg.get("holdout_days") or 0))
         self.hard_days: set[int] = set()
         self.aux_pred: np.ndarray | None = None
         self.net: CSMLPNet | None = None
@@ -132,13 +135,18 @@ class CSMLPModel:
         x = np.ascontiguousarray(self.ind_sel[int(t), idx])
         return torch.from_numpy(x).to(self.device)
 
+    def _predict_batch(self, t: int, idx: np.ndarray) -> torch.Tensor:
+        if self.net is None:
+            raise RuntimeError("CS MLP is not fitted")
+        return self.net(self._x_tensor(t, idx), self._cats_tensor(t, idx))
+
     def _loss(self, pred: torch.Tensor, yb: torch.Tensor) -> torch.Tensor:
         if self.loss_name in {"pearson_ic", "ic"}:
             return pearson_ic_loss(pred, yb)
         return nn.functional.mse_loss(pred, yb)
 
     def _day_target(self, data: dict[str, Any], t: int, idx: np.ndarray) -> np.ndarray:
-        y = np.asarray(data["y1"][t], dtype=np.float32)
+        y = np.asarray(split_label_array(data, self.label_key)[t], dtype=np.float32)
         mask = data["mask_y"][t]
         if self.target_mode == "tree_ols":
             if self.aux_pred is None:
@@ -184,6 +192,26 @@ class CSMLPModel:
         )
 
         base_days = list(range(int(train_start), int(train_end)))
+        if self.min_train_coverage > 0:
+            kept = [
+                t
+                for t in base_days
+                if int(np.asarray(data["mask_x"][t], dtype=bool).sum()) >= self.min_train_coverage
+            ]
+            print(f"min_train_coverage={self.min_train_coverage} days {len(base_days)}->{len(kept)}")
+            base_days = kept
+        hold_days: list[int] = []
+        if self.holdout_days > 0:
+            uniq = sorted(base_days)
+            if len(uniq) <= self.holdout_days + 8:
+                raise RuntimeError("not enough days for train holdout")
+            hold_days = uniq[-self.holdout_days :]
+            hold_set = set(hold_days)
+            base_days = [t for t in base_days if t not in hold_set]
+            print(
+                f"holdout_days={self.holdout_days} hold=[{hold_days[0]},{hold_days[-1]}] "
+                f"train_days={len(base_days)} (official valid not used for early stop)"
+            )
         days: list[int] = []
         for t in base_days:
             n = self.hard_repeat if t in self.hard_days else 1
@@ -200,9 +228,8 @@ class CSMLPModel:
                 if self.max_train_stocks and idx.size > int(self.max_train_stocks):
                     idx = np.sort(rng.choice(idx, size=int(self.max_train_stocks), replace=False))
                 y = self._day_target(data, t, idx)
-                xb = self._x_tensor(t, idx)
                 yb = torch.from_numpy(np.ascontiguousarray(y)).to(self.device)
-                pred = self.net(xb, self._cats_tensor(t, idx))
+                pred = self._predict_batch(t, idx)
                 loss = self._loss(pred, yb)
                 opt.zero_grad(set_to_none=True)
                 loss.backward()
@@ -216,9 +243,13 @@ class CSMLPModel:
                         flush=True,
                     )
             valid_ic = None
-            if valid is not None:
+            scored = bool(hold_days) or (valid is not None)
+            if hold_days:
+                valid_ic = float(self._score_global_days(data, hold_days, score_fn))
+            elif valid is not None:
                 pred_v = self.predict_panel(valid, data)
-                valid_ic = float(score_fn(pred_v, valid["y1"], valid["mask_y"]))
+                valid_ic = float(score_fn(pred_v, split_label_array(valid, self.label_key), valid["mask_y"]))
+            if scored:
                 if np.isfinite(valid_ic) and valid_ic > best_ic:
                     best_ic = valid_ic
                     best_state = {k: v.detach().cpu().clone() for k, v in self.net.state_dict().items()}
@@ -226,14 +257,34 @@ class CSMLPModel:
                 else:
                     stale += 1
             mean_loss = float(np.mean(losses)) if losses else 0.0
-            print(f"epoch {epoch + 1}/{epochs} loss={mean_loss:.5f} valid_RankIC={valid_ic}", flush=True)
+            tag = "hold_RankIC" if hold_days else "valid_RankIC"
+            print(f"epoch {epoch + 1}/{epochs} loss={mean_loss:.5f} {tag}={valid_ic}", flush=True)
             history.append({"epoch": epoch + 1, "loss": mean_loss, "valid_ic": valid_ic})
-            if valid is not None and stale >= patience:
+            if scored and stale >= patience:
                 print("early stop")
                 break
         if best_state is not None:
             self.net.load_state_dict(best_state)
         return {"best_valid_ic": best_ic if best_ic > -1e8 else None, "history": history}
+
+    def _score_global_days(self, data: dict[str, Any], days: list[int], score_fn) -> float:
+        if self.net is None or self.ind_sel is None:
+            raise RuntimeError("CS MLP is not fitted")
+        self.net.eval()
+        n_stocks = int(data["mask_x"].shape[1])
+        pred = np.zeros((len(days), n_stocks), dtype=np.float32)
+        y = np.zeros((len(days), n_stocks), dtype=np.float32)
+        my = np.zeros((len(days), n_stocks), dtype=bool)
+        with torch.no_grad():
+            for i, t in enumerate(days):
+                m = np.asarray(data["mask_x"][t], dtype=bool)
+                idx = np.flatnonzero(m)
+                my[i] = np.asarray(data["mask_y"][t], dtype=bool)
+                y[i] = np.asarray(split_label_array(data, self.label_key)[t], dtype=np.float32)
+                if idx.size == 0:
+                    continue
+                pred[i, idx] = self._predict_batch(t, idx).detach().cpu().numpy().astype(np.float32)
+        return float(score_fn(pred, y, my))
 
     def predict_panel(
         self,
@@ -258,7 +309,7 @@ class CSMLPModel:
                 if idx.size == 0:
                     continue
                 t = start + local_t
-                pred = self.net(self._x_tensor(t, idx), self._cats_tensor(t, idx))
+                pred = self._predict_batch(t, idx)
                 out[local_t, idx] = pred.detach().cpu().numpy().astype(np.float32)
         return out
 

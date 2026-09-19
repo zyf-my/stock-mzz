@@ -1,0 +1,13 @@
+# 课题 1 的 n2000 + 含当天 + 末 800 天 GRU，列换成 y2 Top 21。
+# 不覆盖 outputs/task2/gru_x6_with_today_*。
+
+include: configs/task2/gru_x6_with_today.yaml
+
+features:
+  num_indices: [8, 40, 7, 42, 11, 57, 41, 58, 90, 55, 68, 39, 69, 74, 73, 38, 43, 72, 66, 87, 50]
+
+paths:
+  checkpoint: checkpoints/task2/gru_y2cols.pt
+  valid_pred: outputs/task2/gru_y2cols_valid.npy
+  test_pred: outputs/task2/gru_y2cols_test.npy
+  submission: submissions/task2_gru_y2cols.npy

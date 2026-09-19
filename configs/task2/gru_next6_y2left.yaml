@@ -1,0 +1,13 @@
+# 课题 1 next6 的 y2 版：Top21 之后按 train |RankIC| 的 6 列。
+# 83, 31, 4, 92, 86, 49。不覆盖旧 next6 / rank-gate 主文件。
+
+include: configs/task2/gru_next6_with_today.yaml
+
+features:
+  num_indices: [83, 31, 4, 92, 86, 49]
+
+paths:
+  checkpoint: checkpoints/task2/gru_next6_y2left.pt
+  valid_pred: outputs/task2/gru_next6_y2left_valid.npy
+  test_pred: outputs/task2/gru_next6_y2left_test.npy
+  submission: submissions/task2_gru_next6_y2left.npy

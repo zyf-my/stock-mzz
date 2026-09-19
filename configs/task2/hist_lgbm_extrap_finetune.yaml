@@ -1,0 +1,16 @@
+# y2 mkt_rel 暖启动 + 高覆盖日微调（train cov>=3800，~128 天）
+
+include: configs/task2/hist_lgbm_mkt_rel.yaml
+
+train:
+  min_day_coverage: 3800
+  init_checkpoint: checkpoints/task2/hist_lgbm_mkt_rel.txt
+  finetune_rounds: 120
+  sample_weight: coverage_linear
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_extrap_finetune.txt
+  valid_pred: outputs/task2/hist_lgbm_extrap_finetune_valid.npy
+  test_pred: outputs/task2/hist_lgbm_extrap_finetune_test.npy
+  importance: outputs/task2/hist_lgbm_extrap_finetune_importance.csv
+  submission: submissions/task2_hist_lgbm_extrap_finetune.npy

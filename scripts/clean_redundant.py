@@ -1,4 +1,4 @@
-"""Delete abandoned experiment artifacts. Keeps the locked next6 fusion and its branches.
+"""Delete abandoned experiment artifacts. Keeps locked task1 + task2 live branches.
 
 Usage:
     .\\.venv\\Scripts\\python.exe scripts\\clean_redundant.py
@@ -6,6 +6,7 @@ Usage:
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,32 +64,51 @@ KEEP_SUB = {
     ".gitkeep",
     "task1_fusion_next6_wt_mlp6.npy",
     "task1_fusion_x6_today.npy",
+    "task1_fusion_alpha_tree.npy",
+    "task1_fusion_alpha_x.npy",
 }
+KEEP_SUB_PREFIX = ("task2_",)
+KEEP_OUTPUT_DIRS = {"split_cache", "task2", "x6_today_fusion"}
+KEEP_CKPT_DIRS = {"task2"}
 
 
-def _clean_dir(folder: Path, keep: set[str]) -> list[str]:
+def _clean_dir(folder: Path, keep: set[str], keep_prefix: tuple[str, ...] = ()) -> list[str]:
     removed: list[str] = []
     if not folder.is_dir():
         return removed
     for path in folder.iterdir():
         if path.is_dir():
             continue
-        if path.name in keep:
+        if path.name in keep or path.name.startswith(keep_prefix):
             continue
         path.unlink()
         removed.append(str(path.relative_to(ROOT)))
     return removed
 
 
+def _clean_subdirs(folder: Path, keep_dirs: set[str]) -> list[str]:
+    removed: list[str] = []
+    if not folder.is_dir():
+        return removed
+    for path in folder.iterdir():
+        if not path.is_dir() or path.name in keep_dirs:
+            continue
+        shutil.rmtree(path)
+        removed.append(str(path.relative_to(ROOT)) + "/")
+    return removed
+
+
 def main() -> None:
     removed = []
     removed.extend(_clean_dir(ROOT / "outputs", KEEP_OUTPUTS))
+    removed.extend(_clean_subdirs(ROOT / "outputs", KEEP_OUTPUT_DIRS))
     removed.extend(_clean_dir(ROOT / "checkpoints", KEEP_CKPT))
-    removed.extend(_clean_dir(ROOT / "submissions", KEEP_SUB))
+    removed.extend(_clean_subdirs(ROOT / "checkpoints", KEEP_CKPT_DIRS))
+    removed.extend(_clean_dir(ROOT / "submissions", KEEP_SUB, KEEP_SUB_PREFIX))
     print(f"removed {len(removed)} files")
     for name in removed:
         print(f"  {name}")
-    print("kept locked fusion + x6/only6/next6/tree/mlp branches + split_cache/")
+    print("kept task1 locked + previous main + live branches + split_cache/ + task2/")
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ def main() -> None:
     data_path = resolve_data_path(cfg, args.data)
     t0 = time.perf_counter()
     data = load_panel(str(data_path))
-    drop_task2_label(data)
+    # Keep both y1 and y2 in cache for task1/task2 eval scripts.
     print(f"loaded panel in {time.perf_counter() - t0:.1f}s")
     dump_split_cache(data, dest, industry_col=args.industry_col, splits=names)
     print(f"wrote {dest} in {time.perf_counter() - t0:.1f}s")

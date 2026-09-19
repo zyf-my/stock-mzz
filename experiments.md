@@ -2,7 +2,7 @@
 
 每次有效训练追加一条。没有数字的「大概好了」不算完成。对比实验一次只改窗口、特征集合、损失、模型四者之一。
 
-**当前最强：valid 0.120869，平台 test 0.125679**，文件 `task1_fusion_x6_today.npy`（上一版 `task1_fusion_next6_wt_mlp6.npy` valid 0.120542 / test 0.125588）。只改 x6 GRU 的 `include_current_day`，二档门控与融合权重不变。gate3 / 输入时间衰减 valid 高 test 差，已抛弃。测试分只记结果，不回灌再搜门控。
+**当前最强：valid 0.122846，平台 test 0.126487**，文件 `task1_fusion_alpha_x.npy`（上一版 `task1_fusion_alpha_tree.npy` valid 0.121627 / test 0.125795）。树支改为 0.7×hist-lgbm-alpha-x + 0.3×baseline（历史 42 列），GRU/MLP/二档门控冻权。gate3 / 输入时间衰减 / recent 树融合 valid 高 test 差，已抛弃。ALSTM/TRA/过夜批/高覆盖专家未超过。本地 hi31 31 天太噪，不能单独否决 valid 上涨的试投。测试分只记结果，不回灌再搜门控或树窗口。
 
 ## cs-lgbm-001
 - 日期：2026-08-17
@@ -744,6 +744,187 @@
 - 代码/配置：`scripts/eval_x6_today_gate3_fusion.py`
 - valid mean RankIC：**0.124767**；平台 test mean RankIC：**0.120477**
 - 结论：**抛弃。** valid 高因 valid 覆盖度分三档；test 442 天全覆盖 ≥4650，gate3 高档 w=1.0 变纯 GRU，树不进融合。与 fusion-x6-only6-gate3 同类失败。
+
+## fusion-recent-tree-001
+- 日期：2026-08-23
+- 代码/配置：`configs/hist_lgbm_recent.yaml`，`scripts/eval_recent_tree_fusion.py`
+- 输入特征：相对锁定 x6_today 配方，**只把树融合时序支从 hist_lgbm-002 换成 hist_lgbm_recent**（末 800 天，每天 800 只，L=10 cs 历史，配方不变）；baseline 仍 0.0999；raw 0.7；gate2 / GRU / MLP 权重原样锁死
+- 是否看历史：窗口 = 10，source=cs_zscore；拟合只用 train 末 800 天，历史仍可回看更早
+- 模型：不重训 GRU/MLP；树用已有 recent 配置重训（本机缺产物）
+- 损失：树 MSE；融合不训练
+- valid mean RankIC：**0.122561**（对照锁定 x6_today 0.120869，Δ=+0.001692）
+- 平台 test mean RankIC：**0.123618**（对照 0.125679，Δ=−0.002061）
+- 诊断：recent 单支 0.105431（与 hist-lgbm-recent-001 逐位对齐）；002 单支 0.104192。树融合 0.109848（对照 0.106185）。与旧树日均 Spearman 0.8439；GRU ens vs recent-tree 0.5251（旧树 0.5396）。门控 0.122843（对照 0.120912）。负 RankIC 日 38
+- 复核（`scripts/diag_recent_tree.py`，不是代码写错）：`fusion_valid/test` 与 `0.7*hist_002+0.3*baseline` 逐位相等；提交文件与本地 test 预测逐位相等。预测尺度与 002 同量级。**valid 覆盖 4242–4724，test 覆盖 4725–5282，零重叠**（test 最小天比 valid 最大天还挤）。valid 上 `cov>=4546` 融合 recent 仍略好（0.1354 vs 0.1337），但 recent 单树在该档已经掉（0.0997 vs 0.1004）；Q2 单树 0.081 vs 0.092。末 800 天覆盖 3433–4239，贴的是 valid 左端，不是 test。
+- 耗时 / 硬件：recent 树 178s；融合 5s；CPU
+- 结论：**抛弃。** 融合管道没有接错支、没有尺度爆炸。valid 涨是因为树在拟合 valid 邻域的覆盖带；test 整段落在 valid 从未见过的更高覆盖上，全量 002 更稳。未覆盖 `task1_fusion_x6_today.npy`。
+- 下一步：不要用这次测试分再搜 recent 天数或 002/recent 混合权重。树底仓锁回 hist_lgbm-002。主方案仍是 `task1_fusion_x6_today.npy`。
+
+## hist-lgbm-covw-001
+- 日期：2026-08-23
+- 代码/配置：`configs/hist_lgbm_covw.yaml`，`scripts/eval_hist_covw_fusion.py`；`LightGBMBaseline.fit` 增加 `sample_weight`
+- 输入特征：与 hist_lgbm-002 完全相同；全量 2432 天；当天 `mask_x` 股票数线性映射到样本权重 0.5–1.0（train 覆盖 2085–4239）
+- 是否看历史：窗口 = 10，source=cs_zscore
+- 模型：LightGBM 回归，超参与 002 相同
+- 损失：MSE 回归 y1
+- valid mean RankIC：单支 **0.098787**（对照 002 为 0.104192）；锁死 x6_today 融合 **0.118651**（Δ=−0.002218）；高覆盖档 0.1334 vs 0.1337
+- 耗时 / 硬件：加载 58s，摊平 43s，拟合 180s，合计 348s
+- 结论：**抛弃。** 软权重没有修好硬切 recent 的制度错位，反而把 002 配方搅坏。train 最高覆盖仍只有 4239，加权也到不了 test 的 4725+。未覆盖主提交。
+- 下一步：停止改 hist_lgbm 的拟合窗 / 样本权重。树底仓锁 002。要涨 test 只能加对高覆盖有效的新信号，不能再调树的时间切分。
+
+## overnight-task1-001
+- 日期：2026-09-19
+- 代码/配置：`scripts/run_task1_overnight.py`、`scripts/run_task1_overnight_more.py`；`src/models/linear_cs.py`；`src/models/fusion.py` 的 `shrink_to_day_mean`；`src/models/gru_ts.py` 的 pairwise logistic；配置 `gru_x6_wide` / `_h96` / `_l2` / `_pairwise` / `gru_x6_with_today_s43|s44` / `gru_only6_with_today_s43`
+- 输入特征：锁定融合原配方；线性支用 x6 的 27 列当天 CS z-score（±覆盖度 extras）；新 GRU 仍是这 27 列（only6 种子仍是 6 列）含当天、末 800 天、每天 2000 只
+- 是否看历史：GRU 窗口 = 10，含当天；ridge/online 无窗口
+- 模型：截面 ridge / 遗忘 online ridge；加宽 GRU（128×2 / 96 / 64×2）；x6 种子 43/44；pairwise BPR；行业中性；GRU 对树逐日正交
+- 损失：ridge=MSE+L2；GRU 多数 MSE，一支 pairwise logistic
+- valid mean RankIC（融合，对照锁定 0.120869 / hi31 0.211839）：
+  - 收缩到日均值：全部 Δ=0（Spearman 对仿射不变）
+  - ridge 单支 0.065；online 0.067；叠进融合全掉
+  - attn/listnet/full_hicov/wide 袋装全掉；wide 单支 0.0908，替换融合 0.1176
+  - h96 单支 0.1005（本批最强单 GRU），袋装融合 0.120765（Δ=−0.000104）
+  - s43 单支 0.0986 / s44 0.0972（s44 hi31 单支 0.228）；三种子袋装融合 0.1198
+  - pairwise 单支 0.0888，融合 0.1130
+  - only6 s43 袋装 0.1207
+  - 行业中性融合 0.1108
+  - GRU⊥树 w=0.05：valid 0.120536（Δ=−0.000333）hi31 0.214887；写出 `task1_fusion_overnight_gru_ortho_w0.05.npy`，**不要当主提交**
+  - 报告专用（valid 搜权，不写主文件）：`gate_whi_0.70` 0.121613；`mlpw_0.10` 0.121022；`next6w_0.10` 0.120877。与 gate3 同类，test 覆盖更高时会把树权打没
+- 平台 test：未提交任何过夜候选。锁定仍是 **0.125679**
+- 耗时 / 硬件：批1 1603s（含 wide GRU 拟合 1297s）；批2 2139s（6 支 GRU）；CPU，串行
+- 结论：**抛弃过夜候选，主方案不动。** 没有出现 hi31 不降且 valid 明显上涨的新信号。单 GRU 可以略强于 seed42，但和树更同向，锁死融合掉分。0.135 不能靠加宽网络、换损失、线性 CS、收缩或 valid 微调查出来。
+- 下一步：不要再在 valid 上动 `w_hi` / MLP 权重。不要上传 shrink 或 ortho 文件。要冲 0.135 需要真正的新高覆盖信号，而不是再训同一 27 列。
+
+## hicov-specialist-001
+- 日期：2026-09-19
+- 代码/配置：`scripts/scan_hicov_cols.py`、`configs/hist_lgbm_hicov.yaml` / `cs_mlp_hicov.yaml` / `gru_hicov.yaml`、`scripts/eval_hicov_specialist.py`；GRU/MLP 增加 `min_train_coverage` + `holdout_days`（早停用 train 内部高覆盖尾部，不用官方 valid）
+- 输入特征：train 末 800 天里 coverage≥4000 的 110 天扫 99 列；选 |RankIC|≥0.03 的 21 列 `[72,84,76,61,60,86,68,38,39,57,69,10,79,50,3,64,46,5,74,90,66]`。全 train 最强的 8/11/7/41 不在这批里
+- 是否看历史：树窗口 10、`[t-L,t)`；GRU L=10 含当天；MLP 无窗口
+- 模型：树每天 2000 只、110 天；MLP/GRU 70 天拟合 + 40 天 holdout
+- 损失：树 MSE；MLP Pearson IC；GRU MSE
+- valid mean RankIC：树单支 **0.071894**（hi31 0.003）；MLP **0.056944**（hi31 0.132）；GRU **0.092397**（hi31 0.205）。对照锁定融合 0.120869 / 0.211839
+- 锁死权重替换：换 x6 → 0.117994；袋装 x6 → 0.120247；换树 → 0.104203；换 MLP → 0.120447（Δ=−0.000422）hi31 0.215830。脚本按「valid 不掉过 0.0005」写出 `task1_fusion_hicov_replace_mlp.npy`
+- 耗时 / 硬件：扫列 53s；树 73s；MLP 51s；GRU 69s；评估数秒；CPU
+- 结论：**抛弃。** 高覆盖窗上单因子头只有 0.052，样本只有 110 天。树在 valid 高覆盖档接近零；GRU 没超过锁定 x6；`replace_mlp` 是 valid 微跌、31 天 hi31 噪声上涨，和 overnight 的 `gru_ortho_w0.05` 同类，**不要上传、不要当主提交。** 未覆盖 `task1_fusion_x6_today.npy`。
+- 下一步：不要再在 coverage≥4000 的几十天上重选列再训。这包特征在可提交、冻权设定下看不到 0.135。主方案仍是 `task1_fusion_x6_today.npy`（valid 0.120869 / 平台 0.125679）。
+
+## hist-lgbm-alpha-001
+- 日期：2026-09-19
+- 代码/配置：`src/dataset.py` 历史块补 last/delta/ewm/ts_rank/slope；`LightGBMBaseline.fit_double_ensemble`（残差 |e| 重权 clip 0.3–3，留 gain 前 60%+类别再训第二棵，预测 0.5/0.5）；`configs/hist_lgbm_alpha.yaml`；`scripts/eval_alpha_fusion.py`
+- 输入特征：截面基线 + 过去 20 日、27 列 CS z-score 的 mean/std/last/delta/ewm/ts_rank/slope（494 列）。增益头：`cat_1/6`，`hist_mean_19/5/25/17`，`hist_slope_20/22`
+- 是否看历史：窗口 = 20，`[t-L, t)`，`source=cs_zscore`
+- 模型：DoubleEnsemble 两棵 LGBM，每天 800 只，全 train 2432 天
+- 损失：MSE 回归 y1；第二棵按 |残差| 重权
+- valid mean RankIC：单支 **0.106280**（对照 hist-lgbm-002 **0.104192**，+0.002088）hi31 0.1269。0.7×alpha+0.3×baseline 树支 0.107520 / hi31 0.1117
+- 锁死权重替换树：融合 valid **0.121627**（+0.000758）hi31 **0.219102**（+0.007263）。写出 `task1_fusion_alpha_tree.npy`，未覆盖 `task1_fusion_x6_today.npy`
+- 平台 test mean RankIC：**0.125795**（对照 0.125679，Δ=+0.000116）
+- 耗时 / 硬件：摊平 55s + 拟合 248s + valid/test 预测，合计 452s；CPU；1945600×494
+- 结论：**上一主提交。** 已被 `task1_fusion_alpha_x.npy` 超过。复现：`configs/hist_lgbm_alpha.yaml` → `scripts/eval_alpha_fusion.py`。
+- 下一步：树底仓已换成 alpha-x，见 hist-lgbm-alpha-x-001。
+
+## hist-lgbm-alpha-x-001
+- 日期：2026-09-19
+- 代码/配置：`configs/hist_lgbm_alpha_x.yaml`；`scripts/eval_alpha_fusion.py --stem hist_lgbm_alpha_x --tag alpha_x`
+- 输入特征：相对 alpha 只追加 15 列历史轨迹 `[3,38,46,48,49,50,60,61,64,72,75,76,79,84,86]`。当天 99 列不变。599 维。新列增益最高是 `hist_ewm_50`（第 27），top20 仍全是原 27 列
+- 是否看历史：窗口 = 20，`[t-L, t)`
+- 模型：DoubleEnsemble，每天 800 只，全 train
+- 损失：MSE
+- valid mean RankIC：单支 **0.108582**（对照 alpha 0.106280，+0.002302）hi31 0.1192
+- 锁死权重替换树：融合 valid **0.122846**（+0.001219）hi31 **0.218269**（−0.000833）。本地脚本曾打 keep_main
+- 平台 test mean RankIC：**0.126487**（对照 0.125795，Δ=+0.000692）
+- 耗时 / 硬件：摊平 85s + 拟合 261s，合计 513s；CPU
+- 结论：**当前主提交。** valid 和平台 test 都涨。本地 hi31 微跌是 31 天噪声，和 recent 树（valid 0.1226 / test 0.1236）不是一类。复现：`configs/hist_lgbm_alpha_x.yaml` → `scripts/eval_alpha_fusion.py --stem hist_lgbm_alpha_x --tag alpha_x`。未覆盖 `task1_fusion_alpha_tree.npy`。
+- 下一步：不要用这次 test 再搜门控、再堆未窗口列或改 hi31 否决线。GRU/MLP/gate2 冻权，树底仓改为 alpha-x+baseline0.3。cat_5 见 hist-lgbm-alpha-x-cat5-001。
+
+## hist-lgbm-alpha-x-cat5-001
+- 日期：2026-09-19
+- 代码/配置：`configs/hist_lgbm_alpha_x_cat5.yaml`；`scripts/eval_alpha_fusion.py --stem hist_lgbm_alpha_x_cat5 --tag alpha_x_cat5`
+- 输入特征：相对锁定 alpha-x 只打开 `cat_5`（600 维）
+- 是否看历史：窗口 = 20，与 alpha-x 相同
+- 模型：DoubleEnsemble，每天 800 只，全 train
+- 损失：MSE
+- valid mean RankIC：单支 **0.096866**（对照 alpha-x 0.108582）hi31 0.1507。`cat_5` 增益 7273，远高于 `cat_1` 405
+- 锁死权重替换树：融合 valid **0.118066**（−0.004780）hi31 0.2228。VERDICT keep_main
+- 耗时 / 硬件：合计 513s；CPU
+- 结论：**抛弃。** 股票 ID 把树拟合到个股固定效应，截面排序掉了。`task1_fusion_alpha_x_cat5.npy` 不要上传。未覆盖主文件。
+- 下一步：不要再开 `cat_5`。主方案仍是 `task1_fusion_alpha_x.npy`。alpha/alpha-x 袋装见 alpha-tree-bag-001。
+
+## alpha-tree-bag-001
+- 日期：2026-09-19
+- 代码/配置：`scripts/eval_alpha_tree_bag.py`
+- 输入特征：不重训。树支 = w×alpha-x + (1-w)×alpha，再 0.7 混 baseline
+- 是否看历史：沿用两棵已有树
+- 模型：冻权融合
+- 损失：无
+- valid mean RankIC：w=1.0 **0.122846**；w=0.7 0.122766；w=0.5 0.122581
+- 结论：**抛弃。** 两棵树太同向，袋装不涨。不要上传 bag 文件。
+- 下一步：个股 z 已训完，见 hist-lgbm-alpha-xz-001。
+
+## hist-lgbm-alpha-xz-001
+- 日期：2026-09-19
+- 代码/配置：`configs/hist_lgbm_alpha_xz.yaml`；`scripts/eval_alpha_fusion.py --stem hist_lgbm_alpha_xz --tag alpha_xz`
+- 输入特征：相对 alpha-x 只追加 27 列个股 20 日 z。626 维。`stockz_6` / `stockz_10` 进了 top20
+- 是否看历史：窗口 = 20
+- 模型：DoubleEnsemble，每天 800 只，全 train
+- 损失：MSE
+- valid mean RankIC：单支 **0.107590**（对照 alpha-x 0.108582，−0.000992）hi31 0.1180
+- 锁死权重替换树：融合 valid **0.123099**（+0.000253）hi31 **0.217766**（−0.000503）。VERDICT keep_main
+- 耗时 / 硬件：合计 583s；CPU
+- 结论：**抛弃作主提交。** 单支掉了，融合微涨是噪声。写出的 `task1_fusion_alpha_xz.npy` 不必上传。未覆盖主文件。
+- 下一步：主方案仍是 `task1_fusion_alpha_x.npy`。个股 z 这条线停。下一批历史列见 hist-lgbm-alpha-x2-001。
+
+## hist-lgbm-alpha-x2-001
+- 日期：2026-09-19
+- 代码/配置：`configs/hist_lgbm_alpha_x2.yaml`；`scripts/eval_alpha_fusion.py --stem hist_lgbm_alpha_x2 --tag alpha_x2`
+- 输入特征：相对 alpha-x 再追加 15 列历史轨迹 `[2,9,28,29,31,37,51,54,62,65,71,85,87,88,95]`。704 维。top20 仍是原列，新列没进前 20
+- 是否看历史：窗口 = 20
+- 模型：DoubleEnsemble，每天 800 只，全 train
+- 损失：MSE
+- valid mean RankIC：单支 **0.108770**（对照 alpha-x 0.108582，+0.000188）hi31 0.1188
+- 锁死权重替换树：融合 valid **0.123165**（+0.000319）hi31 **0.218569**（+0.000300）
+- 平台 test mean RankIC：**0.125957**（对照主方案 0.126487，Δ=−0.000530）
+- 耗时 / 硬件：合计 609s；CPU
+- 结论：**抛弃。** valid 微涨、平台回落，和 recent 树同一类。新列没进重要性前 20。`task1_fusion_alpha_x2.npy` 不要再传。未覆盖主文件。
+- 下一步：不要再堆更弱的历史列。主方案仍是 `task1_fusion_alpha_x.npy`（平台 0.126487）。加样本见 hist-lgbm-alpha-x-n1200-001。
+
+## hist-lgbm-alpha-x-n1200-001
+- 日期：2026-09-19
+- 代码/配置：`configs/hist_lgbm_alpha_x_n1200.yaml`；1600 只在 16GB 上占约 25GB 换页，已杀掉，无分数
+- 输入特征：与锁定 alpha-x 相同，只把每天抽样 800→1200。2918400×599
+- 是否看历史：窗口 = 20
+- 模型：DoubleEnsemble
+- 损失：MSE
+- valid mean RankIC：单支 **0.110103**（对照 alpha-x 0.108582，+0.001521）hi31 0.1309
+- 锁死权重替换树：融合 valid **0.122202**（−0.000644）hi31 0.219139（+0.000870）。VERDICT keep_main
+- 耗时 / 硬件：拟合 474s，合计 854s；CPU；峰值私有内存约 22GB
+- 结论：**抛弃。** 单支更强，换进锁定融合掉了。`task1_fusion_alpha_x_n1200.npy` 不要上传。未覆盖主文件。
+- 下一步：不要再加每天抽样。主方案仍是 `task1_fusion_alpha_x.npy`。
+
+## gru-alstm-001
+- 日期：2026-09-19
+- 代码/配置：`GRUNet` 支持 `rnn=lstm` + `pool=attn`；`configs/gru_alstm.yaml`；`scripts/eval_x6_swap.py --x6 gru_alstm`
+- 输入特征：与锁定 x6_today 相同 27 列 CS z-score
+- 是否看历史：窗口 = 10，含当天，train 末 800 天，每天 2000 只
+- 模型：LSTM hidden=64，一层，时间注意力池化（23938 参数）
+- 损失：MSE
+- valid mean RankIC：单支 **0.089097**（epoch 1 最佳 0.0891，之后崩到 0.03/0.03/0.05 早停）hi31 0.1848。对照锁定 x6 GRU 单支约 0.098
+- 锁死权重：替换 x6 → 0.118338 / hi31 0.1962（Δ −0.002531 / −0.0156）；与 x6_today 袋装 → 0.119915 / 0.2055（Δ −0.000954 / −0.0063）
+- 耗时 / 硬件：拟合 136s，合计 217s；CPU
+- 结论：**抛弃。** LSTM+attn 没有超过锁定 GRU；和 `gru_x6_attn` 一样换池化就掉。写出的 `task1_fusion_alstm.npy` / `task1_fusion_x6_alstm_bag.npy` 不要上传。未覆盖主文件。
+- 下一步：缩小版 TRA 已训完，见 gru-tra-001。
+
+## gru-tra-001
+- 日期：2026-09-19
+- 代码/配置：`GRUNet` 增加 `tra_experts`（softmax 路由 + 多专家头）；`configs/gru_tra.yaml`；`scripts/eval_x6_swap.py --x6 gru_tra`
+- 输入特征：与锁定 x6_today 相同 27 列 CS z-score
+- 是否看历史：窗口 = 10，含当天，train 末 800 天，每天 2000 只
+- 模型：LSTM+attn + 3 专家头（24263 参数）
+- 损失：MSE
+- valid mean RankIC：单支 **0.087988**（epoch 1 最佳，之后同样崩到 0.03/0.03/0.05）hi31 0.1758
+- 锁死权重：替换 x6 → 0.117631 / 0.1907（Δ −0.003238 / −0.0211）；袋装 → 0.119650 / 0.2034（Δ −0.001219 / −0.0084）
+- 耗时 / 硬件：拟合 122s，合计 190s；CPU
+- 结论：**抛弃。** 比 ALSTM 还弱。Qlib 论文里的 ALSTM/TRA 是对着未来收益训的，换到这份已分位的 y1 上，同一 27 列加路由头没有新信号。`task1_fusion_tra.npy` 不要上传。未覆盖主文件。
+- 下一步：主方案已锁 `task1_fusion_alpha_x.npy`。行业时序结构（ALSTM/TRA）这条线停。
 
 模板：
 

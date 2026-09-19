@@ -1,0 +1,72 @@
+# 相对锁定 alpha-x：再追加 15 列历史轨迹。只按 train 高覆盖日 |RankIC| 选，不看 valid。
+# 新增 51,2,95,9,65,87,29,62,88,71,85,54,28,31,37。不覆盖主融合。
+
+include: configs/hist_lgbm_alpha_x.yaml
+
+features:
+  history:
+    num_indices:
+      - 2
+      - 3
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      - 17
+      - 18
+      - 19
+      - 20
+      - 21
+      - 22
+      - 24
+      - 25
+      - 28
+      - 29
+      - 31
+      - 37
+      - 38
+      - 39
+      - 40
+      - 41
+      - 42
+      - 46
+      - 48
+      - 49
+      - 50
+      - 51
+      - 54
+      - 57
+      - 58
+      - 60
+      - 61
+      - 62
+      - 64
+      - 65
+      - 66
+      - 68
+      - 69
+      - 70
+      - 71
+      - 72
+      - 73
+      - 74
+      - 75
+      - 76
+      - 79
+      - 84
+      - 85
+      - 86
+      - 87
+      - 88
+      - 90
+      - 95
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_alpha_x2.txt
+  valid_pred: outputs/hist_lgbm_alpha_x2_valid.npy
+  test_pred: outputs/hist_lgbm_alpha_x2_test.npy
+  importance: outputs/hist_lgbm_alpha_x2_importance.csv
+  submission: submissions/task1_hist_lgbm_alpha_x2.npy

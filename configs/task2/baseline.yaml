@@ -1,0 +1,11 @@
+include: configs/baseline.yaml
+
+train:
+  label_key: y2
+
+paths:
+  checkpoint: checkpoints/task2/baseline.txt
+  valid_pred: outputs/task2/baseline_valid.npy
+  test_pred: outputs/task2/baseline_test.npy
+  importance: outputs/task2/baseline_importance.csv
+  submission: submissions/task2_baseline.npy

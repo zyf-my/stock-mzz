@@ -1,0 +1,42 @@
+include: configs/hist_lgbm.yaml
+features:
+  max_train_stocks_per_day: 2000
+  history:
+    enabled: true
+    length: 10
+    source: cs_zscore
+    num_indices:
+    - 72
+    - 84
+    - 76
+    - 61
+    - 60
+    - 86
+    - 68
+    - 38
+    - 39
+    - 57
+    - 69
+    - 10
+    - 79
+    - 50
+    - 3
+    - 64
+    - 46
+    - 5
+    - 74
+    - 90
+    - 66
+    stats:
+    - mean
+    - std
+    - last
+train:
+  recent_days: 800
+  min_day_coverage: 4000
+paths:
+  checkpoint: checkpoints/hist_lgbm_hicov.txt
+  valid_pred: outputs/hist_lgbm_hicov_valid.npy
+  test_pred: outputs/hist_lgbm_hicov_test.npy
+  importance: outputs/hist_lgbm_hicov_importance.csv
+  submission: submissions/task1_hist_lgbm_hicov.npy

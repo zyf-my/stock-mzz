@@ -1,0 +1,12 @@
+# y2 x6：只在 train 高覆盖日训练（cov>=4000），末 800 天 + 含当天
+
+include: configs/task2/gru_x6_with_today.yaml
+
+features:
+  min_train_coverage: 4000
+
+paths:
+  checkpoint: checkpoints/task2/gru_x6_cov4k.pt
+  valid_pred: outputs/task2/gru_x6_cov4k_valid.npy
+  test_pred: outputs/task2/gru_x6_cov4k_test.npy
+  submission: submissions/task2_gru_x6_cov4k.npy

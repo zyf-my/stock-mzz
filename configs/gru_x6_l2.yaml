@@ -1,0 +1,14 @@
+# 相对 x6_today：hidden 仍 64，加到 2 层。不覆盖 x6_today / wide。
+
+include: configs/gru_x6_with_today.yaml
+
+model:
+  hidden_size: 64
+  num_layers: 2
+  dropout: 0.2
+
+paths:
+  checkpoint: checkpoints/gru_x6_l2.pt
+  valid_pred: outputs/gru_x6_l2_valid.npy
+  test_pred: outputs/gru_x6_l2_test.npy
+  submission: submissions/task1_gru_x6_l2.npy

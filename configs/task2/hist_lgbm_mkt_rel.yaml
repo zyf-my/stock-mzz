@@ -1,0 +1,13 @@
+# y2：hist + 相对 20 日市场状态（覆盖度 z + 4 列 std），帮助外推到更高覆盖度 test
+
+include: configs/hist_mkt_rel.yaml
+
+train:
+  label_key: y2
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_mkt_rel.txt
+  valid_pred: outputs/task2/hist_lgbm_mkt_rel_valid.npy
+  test_pred: outputs/task2/hist_lgbm_mkt_rel_test.npy
+  importance: outputs/task2/hist_lgbm_mkt_rel_importance.csv
+  submission: submissions/task2_hist_lgbm_mkt_rel.npy

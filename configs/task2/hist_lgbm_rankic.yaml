@@ -1,0 +1,16 @@
+# y2 hist 树 + LambdaRankIC 直接优化 RankIC（类比 y1 hist_lgbm_rankic，y2 未试）
+
+include: configs/task2/hist_lgbm.yaml
+
+model:
+  params:
+    objective: lambdarank_ic
+    max_pair_samples: 512
+    n_estimators: 250
+
+paths:
+  checkpoint: checkpoints/task2/hist_lgbm_rankic.txt
+  valid_pred: outputs/task2/hist_lgbm_rankic_valid.npy
+  test_pred: outputs/task2/hist_lgbm_rankic_test.npy
+  importance: outputs/task2/hist_lgbm_rankic_importance.csv
+  submission: submissions/task2_hist_lgbm_rankic.npy

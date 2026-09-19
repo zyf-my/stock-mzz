@@ -1,0 +1,13 @@
+# 相对 task2 cs_mlp：每天训练股票 800→2000（课题1 x6 同款）。
+# 不覆盖 cs_mlp / 主融合。
+
+include: configs/task2/cs_mlp.yaml
+
+features:
+  max_train_stocks_per_day: 2000
+
+paths:
+  checkpoint: checkpoints/task2/cs_mlp_n2000.pt
+  valid_pred: outputs/task2/cs_mlp_n2000_valid.npy
+  test_pred: outputs/task2/cs_mlp_n2000_test.npy
+  submission: submissions/task2_cs_mlp_n2000.npy

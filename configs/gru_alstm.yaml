@@ -1,0 +1,14 @@
+# Qlib ALSTM：相对锁定 x6_today，只改 RNN GRU→LSTM，池化 last→attn。
+# 列、当天、末 800 天、每天 2000、MSE 不变。不覆盖 x6_today / 主融合。
+
+include: configs/gru_x6_with_today.yaml
+
+model:
+  rnn: lstm
+  pool: attn
+
+paths:
+  checkpoint: checkpoints/gru_alstm.pt
+  valid_pred: outputs/gru_alstm_valid.npy
+  test_pred: outputs/gru_alstm_test.npy
+  submission: submissions/task1_gru_alstm.npy

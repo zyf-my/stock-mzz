@@ -1,0 +1,14 @@
+# 相对 x6_today：只加宽网络（hidden 128 + 2 层）。拟合窗仍是末 800 天。不覆盖 x6_today。
+
+include: configs/gru_x6_with_today.yaml
+
+model:
+  hidden_size: 128
+  num_layers: 2
+  dropout: 0.2
+
+paths:
+  checkpoint: checkpoints/gru_x6_wide.pt
+  valid_pred: outputs/gru_x6_wide_valid.npy
+  test_pred: outputs/gru_x6_wide_test.npy
+  submission: submissions/task1_gru_x6_wide.npy
