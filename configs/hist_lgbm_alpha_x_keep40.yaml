@@ -1,0 +1,12 @@
+# alpha-x 的结构化互补支路：DoubleEnsemble 第二棵树只保留前 40% 特征。
+include: configs/hist_lgbm_alpha_x.yaml
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_alpha_x_keep40.txt
+  valid_pred: outputs/hist_lgbm_alpha_x_keep40_valid.npy
+  test_pred: outputs/hist_lgbm_alpha_x_keep40_test.npy
+  importance: outputs/hist_lgbm_alpha_x_keep40_importance.csv
+  submission: submissions/task1_hist_lgbm_alpha_x_keep40.npy
+
+train:
+  double_keep_frac: 0.4

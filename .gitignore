@@ -238,3 +238,25 @@ logs/*
 *.npz
 *.pkl
 *.pickle
+
+# Locked deliverables for the teammate submission pack only.
+# Do not add official data, local.yaml, or extra experiment dumps.
+!checkpoints/baseline.txt
+!checkpoints/baseline.txt.meta.json
+!checkpoints/hist_lgbm_alpha_x.txt
+!checkpoints/hist_lgbm_alpha_x.txt.ens2.txt
+!checkpoints/hist_lgbm_alpha_x.txt.meta.json
+!checkpoints/hist_lgbm_alpha_x2.txt
+!checkpoints/hist_lgbm_alpha_x2.txt.ens2.txt
+!checkpoints/hist_lgbm_alpha_x2.txt.meta.json
+!checkpoints/gru_x6_with_today.pt
+!checkpoints/gru_x6_with_today.pt.meta.json
+!checkpoints/gru_only6_with_today.pt
+!checkpoints/gru_only6_with_today.pt.meta.json
+!checkpoints/gru_next6_with_today.pt
+!checkpoints/gru_next6_with_today.pt.meta.json
+!checkpoints/cs_mlp.pt
+!checkpoints/cs_mlp.pt.meta.json
+!checkpoints/cs_mlp_only6.pt
+!checkpoints/cs_mlp_only6.pt.meta.json
+!submissions/task1_fusion_existing_recursive_w10.npy

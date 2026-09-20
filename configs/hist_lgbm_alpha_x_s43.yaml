@@ -1,0 +1,11 @@
+# alpha-x 的独立随机采样支路：特征和 DoubleEnsemble 不变，只改 seed。
+include: configs/hist_lgbm_alpha_x.yaml
+
+seed: 43
+
+paths:
+  checkpoint: checkpoints/hist_lgbm_alpha_x_s43.txt
+  valid_pred: outputs/hist_lgbm_alpha_x_s43_valid.npy
+  test_pred: outputs/hist_lgbm_alpha_x_s43_test.npy
+  importance: outputs/hist_lgbm_alpha_x_s43_importance.csv
+  submission: submissions/task1_hist_lgbm_alpha_x_s43.npy

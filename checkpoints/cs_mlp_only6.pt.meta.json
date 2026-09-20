@@ -1,0 +1,55 @@
+{
+  "cfg": {
+    "num_indices": [
+      42,
+      58,
+      66,
+      69,
+      73,
+      74
+    ],
+    "industry_col": 6,
+    "cat_indices": [
+      1
+    ],
+    "cat_embed_dim": 8,
+    "clip": 5.0,
+    "residual_industry": true,
+    "max_train_stocks_per_day": 800,
+    "name": "cs_mlp",
+    "hidden_size": 64,
+    "dropout": 0.1,
+    "loss": "pearson_ic",
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "max_epochs": 8,
+    "patience": 3,
+    "eval_split": "valid",
+    "fill_invalid": 0.0,
+    "log_every_days": 400
+  },
+  "seed": 42,
+  "cols": [
+    42,
+    58,
+    66,
+    69,
+    73,
+    74
+  ],
+  "industry_col": 6,
+  "hidden_size": 64,
+  "dropout": 0.1,
+  "clip": 5.0,
+  "cat_indices": [
+    1
+  ],
+  "cat_embed_dim": 8,
+  "cat_cardinalities": [
+    13
+  ],
+  "loss": "pearson_ic",
+  "residual_industry": true,
+  "target_mode": "industry",
+  "hard_repeat": 1
+}

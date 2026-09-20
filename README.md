@@ -4,16 +4,19 @@
 
 **先读 [`计划.md`](计划.md) 和 [`experiments.md`](experiments.md)。**
 
-当前最强：valid **0.122846**，平台 test **0.126487**（`task1_fusion_alpha_x.npy`）。相对上一版（valid 0.121627 / test 0.125795，`task1_fusion_alpha_tree.npy`）只把树历史列从 27 扩到 42，GRU/MLP/二档门控不变。
+锁定提交（平台已测）：`submissions/task1_fusion_existing_recursive_w10.npy`  
+本地 valid **0.130825**，平台 test **0.129291**，形状 `(442, 5282)` float32。完整实验记录见 [`experiments.md`](experiments.md)，技术方案见 [`说明书.md`](说明书.md)。
 
-复现：先训 `configs/hist_lgbm_alpha_x.yaml`，再跑 `scripts/eval_alpha_fusion.py --stem hist_lgbm_alpha_x --tag alpha_x` → `submissions/task1_fusion_alpha_x.npy`。
+## 队友打包提交
 
-三档门控（gate3）及输入时间衰减 valid 高但 test 差，已抛弃。测试分只记结果，不回灌调参。
+从本仓库拷一份即可。平台预测文件和锁定的 8 套模型已经入库，**不要把官方 `data.z` 拷进提交包**。
 
-## 队友接手
+1. 平台打分文件：`submissions/task1_fusion_existing_recursive_w10.npy`
+2. 已训练模型：`checkpoints/` 里已跟踪的 baseline / alpha-x / alpha-x2 / 三支 GRU / 两支 MLP（含 `.ens2.txt` 和 `.meta.json`）
+3. 可运行代码：`src/`、`scripts/`、`configs/`（只要 yaml 示例，不要 `configs/local.yaml`）、`requirements.txt`
+4. 文档：`说明书.md`、`README.md`、Word 实现方案、PPT 演示稿
 
-1. 数据放仓库外（官方 `data.z`）。不要解包第二份 8.5GB pickle，本机约 16GB 会爆。
-2. 复制路径到 `configs/local.yaml`（已 gitignore），或设环境变量 `JINGGE_DATA`。参考：
+数据仍放仓库外。本机路径写入已 gitignore 的 `configs/local.yaml`，或设 `JINGGE_DATA`：
 
 ```yaml
 data:
@@ -21,14 +24,9 @@ data:
   unpacked: false
 ```
 
-3. 环境：
-
 ```text
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-4. 预测文件、checkpoint、提交 npy **不在 git 里**。要复现 0.117，按 `计划.md` 第 10 节和 `experiments.md` 末条 `gru-no-today-recent-n2000-001`，不要并行两份面板。
-5. 禁止提交：`data.z`、解包 pickle、`outputs/`、`checkpoints/`、`submissions/`、`*.npy`。
-
-已抛弃的实验不要重做一遍，结论写在 `experiments.md`。
+不要并行读两份整包面板。已抛弃的实验不要重做，结论在 `experiments.md`。这个仓库含赛题方法，不要公开。

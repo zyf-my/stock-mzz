@@ -1,0 +1,6 @@
+# 复制为本目录下的 local.yaml 后改路径。local.yaml 已 gitignore，不要提交。
+# 覆盖顺序：CLI --data > 环境变量 JINGGE_DATA > 本文件 > configs/default.yaml
+data:
+  path: "C:/path/to/data.z"
+  # true：已经是解包后的 dict pickle；false：官方 data.z
+  unpacked: false

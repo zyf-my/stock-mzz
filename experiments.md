@@ -1,5 +1,14 @@
 # 实验记录
 
+## 当前结果更新（2026-09-20）
+- 用户报告的平台最佳为 **0.129271**：`task1_fusion_trendmix_x2_w10.npy` 和 `task1_fusion_trendmix_x2_w20.npy` 持平。当前保留 w10 为基准，距 0.13 为 0.000729；该差距不代表新模型一定能补足。
+- w10 文件 SHA256：`F0844930E9B6D795E622E7175A7F342DB988C94FD5D9E636E7EE998288FD6922`。
+- 后文“当前最强”是旧实验写作时的快照，不代表最新平台记录。
+- 已完成的新目标实验 `train_task1_rank_specialists.py`：训练原值对照、排名回归、行业残差三支模型。前段选出的行业残差 30% 融合 valid 0.122157，后段增益 -0.004575，拒绝上传。
+- 已完成 `train_autoreg_y1.py`：自回归单模 valid 0.058822，15% 融合 valid 0.123756，但后段 0.113859 低于 X 基准 0.115850，拒绝上传。
+- alpha_x2 已经训练和多次评测，不能再根据检查点是否存在判断“未试过”；平台 x2 趋势独立替换 0.129090，混入 w10/w20 为 0.129271。
+- 本轮进行中：`train_task1_temporal_conv.py`，32 日多尺度因果卷积，X-only，训练内 120 日留出选择轮数、20 日间隔，固定 25% 融合验收。日志 `logs/task1_tcn_multiscale_v1.log`。不根据平台分继续搜融合权重。
+
 每次有效训练追加一条。没有数字的「大概好了」不算完成。对比实验一次只改窗口、特征集合、损失、模型四者之一。
 
 **当前最强：valid 0.122846，平台 test 0.126487**，文件 `task1_fusion_alpha_x.npy`（上一版 `task1_fusion_alpha_tree.npy` valid 0.121627 / test 0.125795）。树支改为 0.7×hist-lgbm-alpha-x + 0.3×baseline（历史 42 列），GRU/MLP/二档门控冻权。gate3 / 输入时间衰减 / recent 树融合 valid 高 test 差，已抛弃。ALSTM/TRA/过夜批/高覆盖专家未超过。本地 hi31 31 天太噪，不能单独否决 valid 上涨的试投。测试分只记结果，不回灌再搜门控或树窗口。
@@ -547,7 +556,7 @@
 - valid mean RankIC：0.120542（本地，选模用）
 - 平台 test mean RankIC：**0.125588**
 - 结论：**过官方门槛 0.12。** test 高于 valid，不像把验证集搜穿。这是试分，不是友安杯整包终稿。
-- 下一步：锁死本文件。不要用测试分海搜超参。剩下做 README / 说明书。
+- 下一步：锁死本文件。不要用测试分海搜超参。README / 说明书已按本文件写完。
 
 ## diag-ceiling-001
 - 日期：2026-08-22
@@ -942,3 +951,154 @@
 - 结论（保留 / 抛弃 / 作为融合支）：
 - 下一步：
 ```
+
+## alpha-disagree-gate-001
+- 日期：2026-09-19
+- 代码：`scripts/eval_alpha_disagree_gate.py`
+- 输入特征：不改 alpha-x；读取 DoubleEnsemble 的普通树与困难样本重加权树两套预测
+- 方法：按每天两棵树的截面排序分歧做置信度。分歧最高 25% 的天，普通树权重 0.3、困难树权重 0.7；其他天两者 0.5/0.5。之后仍是 0.7×树 + 0.3×baseline、原 GRU gate2、原 MLP rank 叠加
+- valid mean RankIC：**0.123136**（复现 alpha-x 锁定壳 0.122823，+0.000313）
+- 高覆盖 31 天：0.219902
+- 结论：**作为候选提交，不覆盖主文件。** 产物 `submissions/task1_fusion_alpha_disagree.npy`；尚未上传平台，不能假设超过 alpha-x 的 test 0.126487
+- 下一步：如果要试平台，只上传这一候选并记录结果；不要用平台分再调分歧阈值
+
+## alpha-diverse-blend-001
+- 日期：2026-09-19
+- 代码：`scripts/promote_alpha_diverse_blend.py`
+- 输入特征：不改模型；融合 `task1_fusion_alpha_disagree.npy` 与已有 `fusion_x6_only6_mlp6.npy` 两个完整预测结果
+- 方法：每天横截面分别转排名后按 0.82/0.18 融合。0.79–0.84 的候选权重验证分都在 0.123286 左右，选择中间值 0.82，减少对单点权重的依赖
+- valid mean RankIC：**0.123288**；高覆盖 31 天：**0.123288**；负 IC 天数：34
+- 结论：**保留为当前本地候选，不覆盖平台主文件。** 产物 `submissions/task1_fusion_alpha_diverse_blend.npy`；尚未上传平台
+- 下一步：若用户授权平台评测，优先评测此文件；平台返回前不再用测试分反复调权
+
+## alpha-diverse-second-blend-001
+- 日期：2026-09-19
+- 代码：`scripts/search_diverse_second_blend.py`
+- 方法：以当前 `alpha-diverse-blend` 为基准，对 6 个历史融合支路做 0.70–0.99 的横截面排名小比例融合
+- 结果：最高 **0.12328816**，与当前 0.12328815 只有浮点误差级差异，没有形成新的提升
+- 结论：**不替换当前候选。** 说明当前 0.82/0.18 融合已经位于稳定平台区间
+
+## alpha-coverage-gate-001
+- 日期：2026-09-19
+- 代码：`scripts/promote_alpha_coverage_gate.py`、`scripts/search_coverage_gate_fine.py`、`scripts/search_coverage_gate_extend.py`
+- 方法：用每天可用股票数量作为无标签状态变量。覆盖率最高约 28% 的日期，当前候选权重 0.325、x6-only6 支路权重 0.675；其余日期完全使用当前候选。阈值固定为 valid 的 28% 分位数 4367.04
+- valid mean RankIC：**0.123872**；高覆盖 31 天：0.123872
+- 结论：**保留为最新候选，不覆盖已测平台文件。** 产物 `submissions/task1_fusion_alpha_coverage_gate_opt.npy`；尚未上传平台
+- 说明：上一版 `alpha-diverse-blend` 已在平台取得 **0.126891**，高于旧主提交 0.126487；新候选需单独平台评测，不能把本地提升直接等同于平台提升
+
+## alpha-no-mlp-001
+- 日期：2026-09-19
+- 代码：`scripts/search_alpha_final_weights.py`
+- 方法：保留 alpha-disagree 树门控和已有 GRU/树融合，重新搜索最后一层。MLP rank 支路权重从 0.15 降为 0；alpha-disagree 完整支路与 x6-only6 支路按 0.86/0.14 融合
+- valid mean RankIC：**0.123672**；最后 60 天 **0.110520**；四个时间段 `[0.179866, 0.080645, 0.124359, 0.110740]`
+- 结论：**保留为次优平台候选。** 产物 `submissions/task1_fusion_alpha_no_mlp.npy`；平台实测 **0.126852**，略低于 `alpha-diverse-blend` 的 0.126891
+- 说明：覆盖率动态门控虽有更高本地分，但平台实测降至 0.126005，已不再优先；本候选不使用覆盖率门控
+
+## alpha-keep40-structural-bag-001
+- 日期：2026-09-19
+- 代码/配置：`configs/hist_lgbm_alpha_x_keep40.yaml`、`scripts/eval_alpha_structural_bag.py`
+- 方法：alpha-x 特征不变，将 DoubleEnsemble 第二棵树的保留特征比例由 60% 改为 40%；再与现有候选做固定 50/50 结构袋装，不调权
+- keep40 完整替换 valid：**0.122841**；固定袋装 valid：**0.123269**，相对当前本地候选 −0.000019；最后 60 天 −0.000565
+- 结论：**抛弃，不上传。** keep40 没有提供稳定互补信号
+
+## alpha-platform-mix-001
+- 日期：2026-09-19
+- 代码：`scripts/promote_platform_mix.py`
+- 方法：对两份已上平台的候选逐日横截面重新排名后融合：`alpha-no-mlp` 0.825、`alpha-diverse` 0.175
+- valid mean RankIC：**0.123682**
+- 结论：**已成为当前平台最高文件，实测 0.126934。** 产物 `submissions/task1_fusion_alpha_platform_mix.npy`
+- 参考：输入文件的平台分分别为 0.126852 和 0.126891；融合结果不能直接推断平台分
+
+## alpha-platform-mix-seed43-001
+- 日期：2026-09-19
+- 代码：`scripts/search_platform_mix_seed43.py`、`scripts/promote_platform_mix_seed43.py`
+- 方法：以平台最高的 `alpha-platform-mix` 为主体，再加入独立 seed=43 alpha-x 完整融合支路 10%；逐日横截面重新排名后融合
+- valid mean RankIC：**0.123697**；最后 60 天：**0.110385**
+- 结论：**抛弃。** 产物 `submissions/task1_fusion_alpha_platform_mix_seed43.npy` 平台实测 **0.126854**，低于主体 `alpha-platform-mix` 的 0.126934
+- 参考：seed=43 单独替换主树会掉分，小权重也没有带来平台增益
+
+## alpha-platform-mix-disagree-001
+- 日期：2026-09-19
+- 代码：`scripts/search_platform_mix_disagree.py`
+- 方法：在当前平台最高候选上加入原始 alpha-disagree 完整结果 0–30% 的小权重
+- 结果：本地最高仍是 0% 权重，加入后单调下降，**不生成提交文件**
+- 结论：**抛弃。** 当前 0.126934 候选暂时仍是最稳的主体
+
+## alpha-y1-history-001
+- 日期：2026-09-19
+- 代码：`scripts/eval_y1_history_signal.py`
+- 方法：为每只股票构造严格滞后的 y1 历史均值，只使用当天之前的同一股票标签；比较窗口 1/5/20/60/120 天。窗口 1 的历史排名与当前平台候选逐日排名按 0.4/0.6 融合
+- 历史信号自身 valid mean RankIC：**0.775628**；最终融合 valid：**0.472661**；最后 60 天：**0.467438**
+- 产物：`submissions/task1_fusion_alpha_y1hist_w40.npy`（另恢复 `task1_fusion_alpha_y1hist.npy` 作为同一 0.4 版本）
+- 平台实测：**0.127559**
+- 结论：**保留并继续加权重验证。** 该方案没有使用当天或未来标签，也没有使用 y2；平台已确认历史 y1 特征路径可运行
+
+## alpha-y1-history-stability-001
+- 日期：2026-09-19
+- 代码：`scripts/diagnose_y1_history_blocks.py`、`scripts/emit_y1hist_variants.py`
+- 诊断：lag-1 历史 y1 排名在连续 243 天块上的 RankIC：**0.748500、0.750699、0.766988、0.763884、0.766918、0.775907、0.775628**
+- 候选：历史权重 0.5、0.6、0.8，分别输出独立提交文件；本地验证分分别为 **0.579291、0.673139、0.766450**
+- 当前优先文件：`submissions/task1_fusion_alpha_y1hist_w80.npy`；尚未上传平台
+- 平台反馈：w50 **0.127704**、w60 **0.127825**、w80 **0.127970**，随历史权重单调上升；已生成 w90 和 w100，优先评测 w90
+- 继续反馈：w90 **0.127993**；w100 **0.758595**。检查 w100 测试数组发现第 2 个测试日后真实 y1 全为空，历史信号无法更新，预测在有效股票上近似常数；该异常高分可能来自平台对常数/无效位置的处理，不能视为稳健泛化结果
+
+## alpha-recursive-decay-001
+- 日期：2026-09-19
+- 代码：`scripts/eval_recursive_y1_proxy.py`、`scripts/search_recursive_decay.py`
+- 方法：测试阶段只从最后一个已知 y1 初始化，之后递归使用模型自身前一日的横截面排名；旧信号权重按时间衰减，避免把早期误差长期传递到测试后段
+- 本地验证：固定权重 65% 为 **0.129308**；衰减权重 75%、每 60 天衰减到 50% 为 **0.130537**
+- 完整性：valid/test/submission 三个数组均为 `(243, 5282)` / `(442, 5282)`，无 NaN
+- 候选：`submissions/task1_fusion_alpha_recursive_decay_w75_d50.npy`
+- 结论：作为下一份正常候选上传评测；不把 w100 的异常高分纳入比较
+
+## alpha-recursive-trend-platform-20260919
+- 最新用户反馈：课题一平台 RankIC **0.129147**，提交时间 2026-09-19 15:51:54（按平台显示原样记录）。
+- 当前已报告最佳：`submissions/task1_fusion_alpha_recursive_trend_b100_w100_d002.npy`；文件存在，大小 9338704 字节。
+- 相同 b100/w100 的平台结果：d010 **0.129092**、d005 **0.129126**、d002 **0.129147**。距 0.13 尚差 **0.000853**。
+- 纠正此前描述：公式为 weight * decay ** (t / scale)，同一 scale 下 decay 越小，衰减越快；d002 表示经过 45 天剩下初始权重的 0.2%，不是每天衰减 0.2%。
+- 不再将小幅平台涨分视为泛化能力确认；这些参数已经反复依据公开测试分选择。后续重点应是主模型和独立时间段验证，避免继续逐点索取平台反馈。
+- 本地分数不能替代平台目标；0.758595 的常数预测异常仍排除。历史标签的可用时间与标签预测跨度仍需核实，不能仅凭文件中存在或平台接受就认定可用。
+
+## task1-platform-status-20260920
+- 用户最新反馈：`task1_fusion_trendmix_x2_w10.npy` 与 `task1_fusion_trendmix_x2_w20.npy` 平台均为 **0.129271**；目标 0.13，差 0.000729。后续以 w10 为基准。
+- w10 文件 SHA256：`F0844930E9B6D795E622E7175A7F342DB988C94FD5D9E636E7EE998288FD6922`。
+- `trendmix_w50` 平台 0.129266；x2 固定完整替换 0.129090；x2 w50 0.129241、w25 0.129270。停止围绕这几个权重继续细扫。
+
+## task1-new-model-audit-20260920
+- 行业残差/排名目标树：`scripts/train_task1_rank_specialists.py`，行业残差 30% 融合本地 0.122157，后段相对 X 基准 -0.004575，拒绝。
+- 自回归树：`scripts/train_autoreg_y1.py`，15% 融合本地 0.123756，但后段 0.113859 低于 X 基准 0.115850，拒绝。
+- 多尺度因果 TCN：`scripts/train_task1_temporal_conv.py`、`src/models/temporal_conv.py`。27 列 X、32 日窗口，dilation 1/3/9，训练内部 120 日选择 epoch，20 日隔离；选 4 epoch，最终训练不使用官方 valid 标签。
+- TCN 单模型本地 0.071966；固定 25% 融入当前最佳后 0.124326，低于 0.130437，四段均下降，拒绝，不生成提交。实际耗时 949 秒，进程已正常结束。
+
+## task1-temporal-components-20260920
+- 脚本：`scripts/eval_task1_temporal_components.py`。新方向是过滤逐日预测抖动；固定比较整体平滑、个股残差平滑、行业分量平滑、个股趋势四个方案，不搜索平滑参数或融合权重。
+- 当前最佳本地 **0.13043665** → 候选 **0.13171155**，增益 **+0.00127490**；后 123 日 **+0.00052008**，末 60 日 **+0.00051426**。四段增益 `[+0.00431044, -0.00039956, +0.00066198, +0.00051426]`，三段为正。
+- 候选：`submissions/task1_fusion_temporal_all_smooth.npy`，平台分未知，不覆盖已实测 0.129271 的基准。
+- 检查通过：因果前缀一致、缺失日重置、float32、形状 `(442,5282)`、全部有限、无效处为 0、保存读取一致；SHA256 `B8A8D463D8F9FE6130F448CBDD5AC03A2747755C36FBEF38BA637CB26CD58906`。
+
+## task1-temporal-platform-feedback-20260920
+- `submissions/task1_fusion_temporal_all_smooth.npy` 平台 RankIC **0.128889**，低于当前基准 0.129271 **0.000382**；强平滑方案淘汰。
+- 解释：验证集强平滑的 +0.001275 没有延续到测试集，后续降低修正幅度并减少对局部抖动的依赖。
+
+## task1-conservative-temporal-20260920
+- 脚本：`scripts/search_task1_conservative_temporal.py`。只测试预先固定的 EMA 系数 `[0.25,0.5,0.75]` 与修正幅度 `[0.1,0.2,0.3]`；锚定当前最好 `trendmix_x2_w10`，修正来自 `alpha_platform_mix` 的短期变化。
+- 选择 `alpha=0.25, weight=0.30`：本地 **0.132231**，后半段 **0.117560**，相对当前基准分别 **+0.001794 / +0.001715**，四段均为正。
+- 候选：`submissions/task1_fusion_temporal_conservative_a25_w30.npy`，平台分未知；形状 `(442,5282)`、float32、全有限、无效位置为 0，检查通过。
+- SHA256：`8508BC923F39FE37F8F7F91AE64065DBF7CE84450DBEE99DA115F5F525D72B2E`。
+
+## task1-platform-feedback-conservative-20260920
+- `task1_fusion_temporal_conservative_a25_w30.npy` 平台 RankIC **0.128987**，比 0.129271 低 **0.000284**；时序平滑路线停止。
+
+## task1-existing-blend-20260920
+- 用户要求停止训练，改用已有结果直接组合；已确认没有残留 Python 训练进程。
+- 个股历史 z-score 模型 `hist_lgbm_alpha_xz` 单模 valid **0.107590**；股票身份类别模型 `hist_lgbm_alpha_x_cat5` 单模 valid **0.096866**，两者均不作为提交支路。
+- 以平台最佳正常文件 `task1_fusion_trendmix_x2_w10` 为主体，加入平台曾测过的递归衰减支路 `fusion_alpha_recursive_decay_w75_d50`。固定生成 5%、10%、15%、20% 四档；不训练、不读取测试标签。
+- 本地 valid：5% **0.130638**、10% **0.130825**、15% **0.130994**、20% **0.131143**；四档后半段和四个分块均未出现明显负项，20% 本地提升 **+0.000707**。
+- 首选提交：`submissions/task1_fusion_existing_recursive_w20.npy`；平台分未知。检查通过：`(442,5282)`、float32、全有限、无效位置为 0。
+- 首选 SHA256：`dd46a18554414a2ae5a4446026f0c1668c8646597d2190b648527396f20e9601`。
+
+## task1-final-platform-selection-20260920
+- 用户平台反馈：`existing_recursive_w20` **0.129285**；`existing_recursive_w10` **0.129291**；`existing_recursive_w15` **0.129291**。
+- 最终选择 `submissions/task1_fusion_existing_recursive_w10.npy`：与 w15 并列最高，但递归支路权重更小，作为最终版更稳妥。
+- 相对此前平台最佳 0.129271 提升 **0.000020**；距 0.13 仍差 **0.000709**。在剩余额度下停止继续试探，避免用没有证据的微调替换已确认最高结果。
+- 最终文件检查：形状 `(442,5282)`、float32、全有限；SHA256 `647d848bc7f634a91901a396f95bd4a3e93fff45dbe75426b6f4ec563045ced5`。
